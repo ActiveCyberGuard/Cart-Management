@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>University Cart Tracking System</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <h1>Live Cart Tracking</h1>
+            <div class="user-info">
+                <span id="userName">স্টুডেন্ট লগইন করুন</span>
+                <button class="btn-secondary" onclick="toggleLogin()">লগইন</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation -->
+    <nav class="nav-tabs">
+        <button class="tab-btn active" onclick="showTab('map')">🗺️ লাইভ ম্যাপ</button>
+        <button class="tab-btn" onclick="showTab('scanner')">📱 স্ক্যানার</button>
+        <button class="tab-btn" onclick="showTab('fare')">💰 ভাড়া</button>
+        <button class="tab-btn" onclick="showTab('history')">📋 হিস্ট্রি</button>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container">
+        <!-- Map Tab -->
+        <div id="mapTab" class="tab-content active">
+            <div class="map-controls">
+                <div class="stats">
+                    <div class="stat-card">
+                        <span class="stat-label">মোট কার্ট</span>
+                        <span class="stat-value" id="totalCarts">5</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">চলমান কার্ট</span>
+                        <span class="stat-value active" id="activeCarts">3</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">যাত্রী</span>
+                        <span class="stat-value" id="totalPassengers">12</span>
+                    </div>
+                </div>
+            </div>
+            <div id="map"></div>
+            
+            <!-- Cart List -->
+            <div class="cart-list">
+                <h3>চলমান কার্ট সমূহ</h3>
+                <div id="cartListContainer"></div>
+            </div>
+        </div>
+
+        <!-- Scanner Tab -->
+        <div id="scannerTab" class="tab-content">
+            <div class="scanner-container">
+                <h2>QR কোড স্ক্যান করুন</h2>
+                <div class="scanner-box">
+                    <div id="scannerPreview">
+                        <svg width="200" height="200" viewBox="0 0 200 200">
+                            <rect x="10" y="10" width="50" height="50" fill="none" stroke="#4CAF50" stroke-width="3"/>
+                            <rect x="140" y="10" width="50" height="50" fill="none" stroke="#4CAF50" stroke-width="3"/>
+                            <rect x="10" y="140" width="50" height="50" fill="none" stroke="#4CAF50" stroke-width="3"/>
+                            <rect x="140" y="140" width="50" height="50" fill="none" stroke="#4CAF50" stroke-width="3"/>
+                            <line x1="100" y1="0" x2="100" y2="200" stroke="#4CAF50" stroke-width="2" opacity="0.3">
+                                <animate attributeName="y1" from="0" to="200" dur="2s" repeatCount="indefinite"/>
+                                <animate attributeName="y2" from="0" to="200" dur="2s" repeatCount="indefinite"/>
+                            </line>
+                        </svg>
+                    </div>
+                    <button class="btn-primary" onclick="simulateScan()">স্ক্যান করুন</button>
+                </div>
+                
+                <div id="scanResult" class="scan-result" style="display: none;">
+                    <div class="success-icon">✓</div>
+                    <h3>যাচাই সফল!</h3>
+                    <div class="user-details">
+                        <p><strong>নাম:</strong> <span id="scannedName"></span></p>
+                        <p><strong>আইডি:</strong> <span id="scannedId"></span></p>
+                        <p><strong>ধরণ:</strong> <span id="scannedType"></span></p>
+                        <p><strong>ওয়ালেট:</strong> ৳<span id="scannedBalance"></span></p>
+                    </div>
+                    <button class="btn-primary" onclick="confirmBoarding()">বোর্ড করুন</button>
+                </div>
+
+                <div class="manual-entry">
+                    <h3>অথবা ম্যানুয়াল এন্ট্রি</h3>
+                    <input type="text" id="manualId" placeholder="ইউনিভার্সিটি আইডি লিখুন" class="input-field">
+                    <button class="btn-secondary" onclick="verifyManualId()">যাচাই করুন</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fare Tab -->
+        <div id="fareTab" class="tab-content">
+            <div class="fare-calculator">
+                <h2>ভাড়া ক্যালকুলেটর</h2>
+                <div class="fare-form">
+                    <div class="form-group">
+                        <label>শুরুর স্থান</label>
+                        <select id="fromLocation" class="input-field">
+                            <option value="">নির্বাচন করুন</option>
+                            <option value="maingate">মেইন গেট</option>
+                            <option value="library">লাইব্রেরি</option>
+                            <option value="cafeteria">ক্যাফেটেরিয়া</option>
+                            <option value="hostel">হোস্টেল</option>
+                            <option value="academic">একাডেমিক বিল্ডিং</option>
+                            <option value="sports">স্পোর্টস কমপ্লেক্স</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>গন্তব্য</label>
+                        <select id="toLocation" class="input-field">
+                            <option value="">নির্বাচন করুন</option>
+                            <option value="maingate">মেইন গেট</option>
+                            <option value="library">লাইব্রেরি</option>
+                            <option value="cafeteria">ক্যাফেটেরিয়া</option>
+                            <option value="hostel">হোস্টেল</option>
+                            <option value="academic">একাডেমিক বিল্ডিং</option>
+                            <option value="sports">স্পোর্টস কমপ্লেক্স</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>যাত্রী ধরণ</label>
+                        <select id="userType" class="input-field">
+                            <option value="student">স্টুডেন্ট (২০% ছাড়)</option>
+                            <option value="staff">স্টাফ (১৫% ছাড়)</option>
+                            <option value="guest">অতিথি</option>
+                        </select>
+                    </div>
+                    <button class="btn-primary" onclick="calculateFare()">ভাড়া হিসাব করুন</button>
+                </div>
+
+                <div id="fareResult" class="fare-result" style="display: none;">
+                    <div class="fare-details">
+                        <div class="fare-row">
+                            <span>দূরত্ব:</span>
+                            <span id="fareDistance">-</span>
+                        </div>
+                        <div class="fare-row">
+                            <span>মূল ভাড়া:</span>
+                            <span id="baseFare">-</span>
+                        </div>
+                        <div class="fare-row discount">
+                            <span>ছাড়:</span>
+                            <span id="fareDiscount">-</span>
+                        </div>
+                        <div class="fare-row total">
+                            <span>মোট ভাড়া:</span>
+                            <span id="totalFare">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fare Table -->
+                <div class="fare-table">
+                    <h3>ভাড়া তালিকা</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>রুট</th>
+                                <th>দূরত্ব</th>
+                                <th>স্টুডেন্ট</th>
+                                <th>স্টাফ</th>
+                                <th>অতিথি</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>মেইন গেট →রফিক-জব্বার হল </td>
+                                <td>0.8 km</td>
+                                <td>৳8</td>
+                                <td>৳8.5</td>
+                                <td>৳10</td>
+                            </tr>
+                            <tr>
+                                <td>শহিদ মিনার → রফিক-জব্বার হল</td>
+                                <td>1.2 km</td>
+                                <td>৳12</td>
+                                <td>৳12.75</td>
+                                <td>৳15</td>
+                            </tr>
+                            <tr>
+                                <td>রফিক-জব্বার হল →  মেইনগেট</td>
+                                <td>0.6 km</td>
+                                <td>৳6</td>
+                                <td>৳6.4</td>
+                                <td>৳8</td>
+                            </tr>
+                            <tr>
+                                <td>ক্যাফেটেরিয়া → রফিক-জব্বার হল</td>
+                                <td>1.5 km</td>
+                                <td>৳16</td>
+                                <td>৳17</td>
+                                <td>৳20</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- History Tab -->
+        <div id="historyTab" class="tab-content">
+            <div class="history-container">
+                <h2>রাইড হিস্ট্রি</h2>
+                <div class="wallet-info">
+                    <div class="wallet-card">
+                        <span>ওয়ালেট ব্যালেন্স</span>
+                        <h2>৳<span id="walletBalance">250</span></h2>
+                        <button class="btn-secondary" onclick="topupWallet()">টপ-আপ করুন</button>
+                    </div>
+                </div>
+
+                <div class="ride-history">
+                    <div class="ride-card">
+                        <div class="ride-header">
+                            <span class="ride-date">২৭ জানুয়ারি, ২০২৬</span>
+                            <span class="ride-status completed">সম্পন্ন</span>
+                        </div>
+                        <div class="ride-details">
+                            <p><strong>রুট:</strong> মেইন গেট → লাইব্রেরি</p>
+                            <p><strong>কার্ট নং:</strong> UC-103</p>
+                            <p><strong>সময়:</strong> 9:30 AM</p>
+                            <p><strong>ভাড়া:</strong> ৳8</p>
+                        </div>
+                    </div>
+
+                    <div class="ride-card">
+                        <div class="ride-header">
+                            <span class="ride-date">২৬ জানুয়ারি, ২০২৬</span>
+                            <span class="ride-status completed">সম্পন্ন</span>
+                        </div>
+                        <div class="ride-details">
+                            <p><strong>রুট:</strong> হোস্টেল → ক্যাফেটেরিয়া</p>
+                            <p><strong>কার্ট নং:</strong> UC-105</p>
+                            <p><strong>সময়:</strong> 1:15 PM</p>
+                            <p><strong>ভাড়া:</strong> ৳6</p>
+                        </div>
+                    </div>
+
+                    <div class="ride-card">
+                        <div class="ride-header">
+                            <span class="ride-date">২৫ জানুয়ারি, ২০২৬</span>
+                            <span class="ride-status completed">সম্পন্ন</span>
+                        </div>
+                        <div class="ride-details">
+                            <p><strong>রুট:</strong> ক্যাফেটেরিয়া → স্পোর্টস কমপ্লেক্স</p>
+                            <p><strong>কার্ট নং:</strong> UC-102</p>
+                            <p><strong>সময়:</strong> 4:45 PM</p>
+                            <p><strong>ভাড়া:</strong> ৳16</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="toggleLogin()">&times;</span>
+            <h2>লগইন করুন</h2>
+            <form onsubmit="login(event)">
+                <div class="form-group">
+                    <label>ইউনিভার্সিটি আইডি</label>
+                    <input type="text" id="loginId" class="input-field" placeholder="আপনার আইডি লিখুন" required>
+                </div>
+                <div class="form-group">
+                    <label>পাসওয়ার্ড</label>
+                    <input type="password" id="loginPassword" class="input-field" placeholder="পাসওয়ার্ড লিখুন" required>
+                </div>
+                <button type="submit" class="btn-primary">লগইন</button>
+            </form>
+            <p class="modal-hint">ডেমো: আইডি: 2021001, পাসওয়ার্ড: 1234</p>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
