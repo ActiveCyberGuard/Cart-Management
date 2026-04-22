@@ -1,766 +1,424 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="bn">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Live Cart Tracking — JU</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
-<style>
-*{margin:0;padding:0;box-sizing:border-box;}
-body{
-  font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
-  background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
-  min-height:100vh;color:#333;
-}
-.container{max-width:1200px;margin:0 auto;padding:20px;}
-
-/* ── HEADER ── */
-.header{background:rgba(255,255,255,0.95);box-shadow:0 2px 10px rgba(0,0,0,0.1);padding:15px 0;position:sticky;top:0;z-index:100;}
-.header .container{display:flex;justify-content:space-between;align-items:center;}
-.title-container{display:flex;flex-direction:column;}
-.header h1{font-size:30px;color:#667eea;margin:0;display:flex;align-items:center;gap:6px;}
-.header h1 .red-i{color:red;font-weight:900;}
-.tagline{font-size:14px;color:#555;font-weight:500;position:relative;overflow:hidden;margin-top:4px;display:inline-block;}
-.tagline::after{content:'';position:absolute;width:100%;height:2px;background:#28a745;left:-100%;bottom:0;animation:slideLine 3s infinite;}
-@keyframes slideLine{0%{left:-100%}50%{left:0}100%{left:100%}}
-.tagline{animation:fadeText 8s infinite;}
-@keyframes fadeText{0%,100%{opacity:0;transform:translateY(-4px)}50%{opacity:1;transform:translateY(0)}}
-.user-info{display:flex;align-items:center;gap:12px;}
-#userName{font-weight:600;color:#555;}
-#userName.loggedin{color:#667eea;font-weight:700;}
-.red-i{
-    color:red;
-    display:inline-block;
-    animation: smoothVanish 6s ease-in-out infinite;
-}
-
-@keyframes smoothVanish {
-
-    /* visible */
-    0%   { opacity:1; filter: blur(0px); }
-    60%  { opacity:1; filter: blur(0px); }
-
-    /* smooth vanish */
-    75%  { opacity:0; filter: blur(6px); }
-
-    /* hidden stay */
-    85%  { opacity:0; filter: blur(6px); }
-
-    /* smooth come back */
-    100% { opacity:1; filter: blur(0px); }
-}
-/* ── BUTTONS ── */
-.btn-primary{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;border:none;padding:11px 26px;border-radius:8px;font-size:15px;cursor:pointer;transition:all .3s;font-weight:600;}
-.btn-primary:hover{transform:translateY(-2px);box-shadow:0 5px 20px rgba(102,126,234,.4);}
-.btn-secondary{background:white;color:#667eea;border:2px solid #667eea;padding:9px 22px;border-radius:8px;font-size:14px;cursor:pointer;transition:all .3s;font-weight:600;}
-.btn-secondary:hover{background:#667eea;color:white;}
-.btn-danger{background:white;color:#e53935;border:2px solid #e53935;padding:9px 22px;border-radius:8px;font-size:14px;cursor:pointer;transition:all .3s;font-weight:600;}
-.btn-danger:hover{background:#e53935;color:white;}
-.btn-full{width:100%;}
-
-/* ── NAV ── */
-.nav-tabs{background:rgba(255,255,255,0.95);display:flex;justify-content:center;gap:5px;padding:10px;box-shadow:0 2px 5px rgba(0,0,0,.1);margin-bottom:20px;}
-.tab-btn{background:transparent;border:1px solid cyan;padding:11px 28px;cursor:pointer;font-size:15px;border-radius:8px;transition:all .3s;color:#666;font-weight:500;}
-.tab-btn:hover{background:rgba(102,126,234,.1);color:#0bd34e;}
-.tab-btn.active{background:#0da726;color:white;border-color:#0da726;}
-
-/* ── TAB ── */
-.tab-content{display:none;animation:fadeIn .3s;}
-.tab-content.active{display:block;}
-@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-
-/* ── MAP ── */
-#map{height:500px;border-radius:12px;box-shadow:0 5px 20px rgba(0,0,0,.2);margin:20px 0;}
-.map-controls{background:white;border-radius:12px;padding:20px;margin-bottom:20px;box-shadow:0 2px 10px rgba(0,0,0,.1);}
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:15px;}
-.stat-card{background:linear-gradient(135deg,#f5f7fa 0%,#c3cfe2 100%);padding:20px;border-radius:10px;text-align:center;transition:transform .3s;}
-.stat-card:hover{transform:translateY(-5px);}
-.stat-label{display:block;font-size:14px;color:#666;margin-bottom:8px;}
-.stat-value{display:block;font-size:30px;font-weight:bold;color:#333;transition:transform .2s;}
-.stat-value.active{color:#4CAF50;}
-
-/* ── CART LIST ── */
-.cart-list{background:white;border-radius:12px;padding:20px;margin-top:20px;box-shadow:0 2px 10px rgba(0,0,0,.1);}
-.cart-list h3{margin-bottom:15px;color:#667eea;}
-.cart-item{background:#f8f9fa;padding:15px;border-radius:8px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;transition:all .3s;}
-.cart-item:hover{background:#e9ecef;transform:translateX(5px);}
-.cart-info{flex:1;}
-.cart-number{font-weight:bold;font-size:18px;color:#667eea;}
-.cart-status{display:inline-block;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;margin-top:5px;}
-.cart-status.active{background:#d4edda;color:#155724;}
-.cart-passengers{font-size:14px;color:#666;margin-top:5px;}
-.seat-bar{height:6px;background:#e9ecef;border-radius:3px;overflow:hidden;margin:8px 0 3px;}
-.seat-fill{height:100%;border-radius:3px;background:#28a745;transition:width .5s;}
-.seat-fill.mid{background:#ffc107;}
-.seat-fill.full{background:#dc3545;}
-.seat-text{font-size:11px;color:#999;display:flex;justify-content:space-between;}
-
-/* ── SCANNER ── */
-.scanner-container{background:white;border-radius:12px;padding:30px;max-width:600px;margin:0 auto;box-shadow:0 5px 20px rgba(0,0,0,.1);}
-.scanner-container h2{text-align:center;color:#667eea;margin-bottom:24px;}
-.qr-box{text-align:center;padding:28px;background:#f8f9fa;border-radius:12px;margin-bottom:20px;position:relative;overflow:hidden;border:2px dashed rgba(102,126,234,.35);}
-.scan-line{position:absolute;left:14px;right:14px;height:2px;background:linear-gradient(90deg,transparent,#667eea,transparent);animation:scanMove 2.5s ease-in-out infinite;}
-@keyframes scanMove{0%{top:15%}100%{top:85%}}
-.qr-corners span{position:absolute;width:20px;height:20px;border-color:#667eea;border-style:solid;}
-.qr-corners span:nth-child(1){top:12px;left:12px;border-width:3px 0 0 3px;border-radius:3px 0 0 0;}
-.qr-corners span:nth-child(2){top:12px;right:12px;border-width:3px 3px 0 0;border-radius:0 3px 0 0;}
-.qr-corners span:nth-child(3){bottom:12px;left:12px;border-width:0 0 3px 3px;border-radius:0 0 0 3px;}
-.qr-corners span:nth-child(4){bottom:12px;right:12px;border-width:0 3px 3px 0;border-radius:0 0 3px 0;}
-#videoEl{width:100%;max-width:320px;border-radius:8px;display:none;}
-#videoEl.on{display:block;}
-.qr-placeholder .qr-icon{font-size:68px;opacity:.4;margin:10px 0;}
-.qr-hint{color:#999;font-size:14px;margin:8px 0 18px;}
-.scan-result{background:#d4edda;border:2px solid #28a745;border-radius:12px;padding:28px;text-align:center;margin-top:20px;display:none;}
-.success-icon{width:56px;height:56px;background:#28a745;color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 14px;}
-.user-details{text-align:left;margin:14px 0;padding:14px;background:white;border-radius:8px;}
-.user-details p{margin:7px 0;font-size:15px;}
-.scan-btns{display:flex;gap:10px;justify-content:center;margin-top:14px;}
-.scan-btns button{flex:1;}
-.manual-entry{margin-top:24px;padding-top:24px;border-top:2px dashed #dee2e6;}
-.manual-entry h3{text-align:center;color:#666;margin-bottom:14px;}
-.input-row{display:flex;gap:10px;}
-.input-row input{flex:1;}
-
-/* ── INPUT ── */
-.input-field{width:100%;padding:11px 14px;border:2px solid #dee2e6;border-radius:8px;font-size:15px;transition:all .3s;font-family:'Segoe UI',sans-serif;}
-.input-field:focus{outline:none;border-color:#667eea;}
-.form-group{margin-bottom:18px;}
-.form-group label{display:block;margin-bottom:7px;font-weight:600;color:#444;}
-
-/* ── FARE ── */
-.fare-calculator{background:white;border-radius:12px;padding:28px;max-width:820px;margin:0 auto;box-shadow:0 5px 20px rgba(0,0,0,.1);}
-.fare-calculator h2{text-align:center;color:#667eea;margin-bottom:24px;}
-.fare-form{max-width:500px;margin:0 auto 24px;}
-.fare-result{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:24px;border-radius:12px;margin-top:18px;}
-.fare-row{display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.2);font-size:15px;}
-.fare-row:last-child{border-bottom:none;}
-.fare-row.total{font-size:22px;font-weight:bold;}
-.fare-table{margin-top:32px;}
-.fare-table h3{margin-bottom:14px;color:#667eea;}
-table{width:100%;border-collapse:collapse;background:white;border-radius:8px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.05);}
-thead{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;}
-th,td{padding:13px 15px;text-align:left;}
-tbody tr{border-bottom:1px solid #dee2e6;}
-tbody tr:hover{background:#f8f9fa;}
-tbody tr:last-child{border-bottom:none;}
-
-/* ── HISTORY ── */
-.history-container{background:white;border-radius:12px;padding:28px;max-width:820px;margin:0 auto;box-shadow:0 5px 20px rgba(0,0,0,.1);}
-.history-container h2{text-align:center;color:#667eea;margin-bottom:24px;}
-.wallet-card{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:28px;border-radius:12px;display:flex;justify-content:space-between;align-items:center;margin-bottom:26px;flex-wrap:wrap;gap:14px;}
-.wallet-label{font-size:14px;opacity:.8;margin-bottom:4px;}
-.wallet-amount{font-size:42px;font-weight:bold;}
-.wallet-btns{display:flex;gap:10px;flex-wrap:wrap;}
-.wallet-btns .btn-secondary{border-color:white;color:white;background:transparent;}
-.wallet-btns .btn-secondary:hover{background:white;color:#667eea;}
-.ride-card{background:#f8f9fa;border-radius:10px;padding:18px;margin-bottom:14px;transition:all .3s;}
-.ride-card:hover{transform:translateY(-2px);box-shadow:0 5px 15px rgba(0,0,0,.1);}
-.ride-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:12px;border-bottom:2px dashed #dee2e6;}
-.ride-date{font-weight:600;color:#666;}
-.ride-status{padding:4px 14px;border-radius:20px;font-size:12px;font-weight:600;}
-.ride-status.completed{background:#d4edda;color:#155724;}
-.ride-details p{margin:7px 0;color:#333;}
-
-/* ── MODAL ── */
-.modal{display:none;position:fixed;z-index:1000;inset:0;background:rgba(0,0,0,.55);}
-.modal.open{display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .25s;}
-.modal-content{background:white;border-radius:14px;padding:28px;width:100%;max-width:440px;position:relative;animation:slideIn .3s;max-height:90vh;overflow-y:auto;}
-@keyframes slideIn{from{transform:translateY(-40px);opacity:0}to{transform:translateY(0);opacity:1}}
-.modal-content h2{text-align:center;color:#667eea;margin-bottom:20px;}
-.close{position:absolute;right:18px;top:16px;font-size:26px;font-weight:bold;color:#aaa;cursor:pointer;}
-.close:hover{color:#333;}
-.modal-hint{text-align:center;margin-top:14px;font-size:13px;color:#888;background:#f0f4ff;border-radius:8px;padding:10px;}
-.modal-hint strong{color:#667eea;}
-
-/* MODAL TABS */
-.modal-tabs{display:flex;gap:4px;background:#f0f2f5;border-radius:10px;padding:4px;margin-bottom:20px;}
-.mtab{flex:1;padding:9px;border-radius:8px;border:none;background:transparent;color:#888;font-family:'Segoe UI',sans-serif;font-weight:600;font-size:14px;cursor:pointer;transition:all .2s;}
-.mtab.active{background:linear-gradient(135deg,#667eea,#764ba2);color:white;}
-
-/* QR DISPLAY */
-.qr-result-box{text-align:center;background:#f8f9fa;border-radius:12px;padding:22px;border:2px solid #dee2e6;}
-#qrGenDiv{display:flex;justify-content:center;margin:14px 0;}
-#qrGenDiv canvas,#qrGenDiv img{border-radius:8px;border:6px solid white;box-shadow:0 2px 10px rgba(0,0,0,.15);}
-.qr-name{font-weight:700;font-size:17px;color:#333;margin-bottom:4px;}
-.qr-uid{font-size:13px;color:#888;margin-bottom:14px;}
-
-/* TOPUP */
-.topup-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0 16px;}
-.tp-btn{padding:11px;border-radius:8px;background:#f0f4ff;border:2px solid #dee2e6;color:#667eea;font-weight:700;font-size:14px;cursor:pointer;transition:all .2s;text-align:center;}
-.tp-btn:hover{background:#667eea;color:white;border-color:#667eea;}
-
-/* TOAST */
-.toast{position:fixed;bottom:26px;right:26px;z-index:9999;background:white;border-left:4px solid #667eea;border-radius:10px;padding:13px 18px;display:flex;align-items:center;gap:10px;font-size:14px;box-shadow:0 8px 30px rgba(0,0,0,.15);transform:translateY(14px);opacity:0;transition:all .3s;pointer-events:none;max-width:300px;}
-.toast.show{transform:translateY(0);opacity:1;}
-.toast.ok{border-color:#28a745;}
-.toast.err{border-color:#dc3545;}
-.toast.warn{border-color:#ffc107;}
-
-/* RESPONSIVE */
-@media(max-width:768px){
-  .header .container{flex-direction:column;gap:12px;}
-  .nav-tabs{flex-wrap:wrap;}
-  .tab-btn{font-size:13px;padding:9px 14px;}
-  #map{height:350px;}
-  .stats{grid-template-columns:1fr 1fr;}
-  table{font-size:13px;}th,td{padding:9px;}
-  .wallet-card{flex-direction:column;}
-  .scan-btns{flex-direction:column;}
-}
-</style>
-</head>
-<body>
-
-<div class="toast" id="toast"><span id="t-ico">✓</span><span id="t-msg"></span></div>
-
-<!-- HEADER -->
-<header class="header">
-  <div class="container">
-    <div class="title-container">
-      <h1>L<span class="red-i">i</span>ve Cart Tracking</h1>
-      <span class="tagline">Find your cart any-time anywhere</span>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Live Cart Tracking — JU</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="toast" id="toast">
+      <span id="t-ico">✓</span><span id="t-msg"></span>
     </div>
-    <div class="user-info">
-      <span id="userName">রেজিস্ট্রার/লগইন করুন</span>
-      <button class="btn-secondary" id="authBtn" onclick="openAuth()">লগইন</button>
-    </div>
-  </div>
-</header>
 
-<!-- NAV -->
-<nav class="nav-tabs">
-  <button class="tab-btn active" onclick="goTab('map',this)"> লাইভ ম্যাপ</button>
-  <button class="tab-btn" onclick="goTab('fare',this)"> ভাড়া হিসাব</button>
-  <button class="tab-btn" onclick="goTab('scanner',this)"> স্ক্যানার</button>
-  <button class="tab-btn" onclick="goTab('history',this)"> হিস্ট্রি</button>
-</nav>
-
-<div class="container">
-
-<!-- MAP TAB -->
-<div id="mapTab" class="tab-content active">
-  <div class="map-controls">
-    <div class="stats">
-      <div class="stat-card"><span class="stat-label">মোট কার্ট</span><span class="stat-value" id="sTot">5</span></div>
-      <div class="stat-card"><span class="stat-label">চলমান কার্ট</span><span class="stat-value active" id="sAct">3</span></div>
-      <div class="stat-card"><span class="stat-label">মোট যাত্রী</span><span class="stat-value" id="sPas">10</span></div>
-      <div class="stat-card"><span class="stat-label">খালি আসন</span><span class="stat-value" id="sFre">14</span></div>
-    </div>
-  </div>
-  <div id="map"></div>
-  <div class="cart-list">
-    <h3>চলমান কার্ট সমূহ</h3>
-    <div id="cartListContainer"></div>
-  </div>
-</div>
-
-<!-- FARE TAB -->
-<div id="fareTab" class="tab-content">
-  <div class="fare-calculator">
-    <h2>ভাড়া ক্যালকুলেটর</h2>
-    <div class="fare-form">
-      <div class="form-group"><label>শুরুর স্থান</label>
-        <select id="fromLocation" class="input-field">
-          <option value="">নির্বাচন করুন</option>
-          <option value="maingate">মেইন গেট</option>
-          <option value="shahid-minar">শহিদ মিনার</option>
-          <option value="srj">শহিদ রফিক-জব্বার হল</option>
-          <option value="bottola">বটতলা</option>
-          <option value="notun-kola">নতুন কলা ভবন</option>
-          <option value="puraton-kola">পুরাতন কলা ভবন</option>
-        </select>
+    <!-- HEADER -->
+    <header class="header">
+      <div class="container">
+        <div class="title-container">
+          <h1>L<span class="red-i">i</span>ve Cart Tracking</h1>
+          <span class="tagline">Find your cart any-time anywhere</span>
+        </div>
+        <div class="user-info">
+          <!-- Logged-out state -->
+          <span id="userName">রেজিস্ট্রার/লগইন করুন</span>
+          <button class="btn-secondary" id="authBtn" onclick="openAuth()">লগইন</button>
+        </div>
       </div>
-      <div class="form-group"><label>গন্তব্য</label>
-        <select id="toLocation" class="input-field">
-          <option value="">নির্বাচন করুন</option>
-          <option value="maingate">মেইন গেট</option>
-          <option value="shahid-minar">শহিদ মিনার</option>
-          <option value="srj">শহিদ রফিক-জব্বার হল</option>
-          <option value="bottola">বটতলা</option>
-          <option value="notun-kola">নতুন কলা ভবন</option>
-          <option value="puraton-kola">পুরাতন কলা ভবন</option>
-        </select>
-      </div>
-      <div class="form-group"><label>যাত্রী ধরণ</label>
-        <select id="userType" class="input-field">
-          <option value="student">স্টুডেন্ট</option>
-          <option value="staff">স্টাফ</option>
-          <option value="guest">অতিথি</option>
-        </select>
-      </div>
-      <button class="btn-primary btn-full" onclick="calculateFare()">ভাড়া হিসাব করুন</button>
-    </div>
-    <div id="fareResult" class="fare-result" style="display:none;">
-      <div class="fare-row"><span>দূরত্ব:</span><span id="fareDistance">-</span></div>
-      <div class="fare-row"><span>যাত্রী ধরণ:</span><span id="fareType">-</span></div>
-      <div class="fare-row total"><span>মোট ভাড়া:</span><span id="totalFare">-</span></div>
-    </div>
-    <div class="fare-table">
-      <h3>ভাড়া তালিকা</h3>
-      <table>
-        <thead><tr><th>রুট</th><th>দূরত্ব</th><th>স্টুডেন্ট</th><th>স্টাফ</th><th>অতিথি</th></tr></thead>
-        <tbody>
-          <tr><td>মেইন গেট → রফিক-জব্বার হল</td><td>1.8 km</td><td>৳10</td><td>৳10</td><td>৳10</td></tr>
-          <tr><td>শহিদ মিনার → রফিক-জব্বার হল</td><td>1.2 km</td><td>৳8</td><td>৳8</td><td>৳8</td></tr>
-          <tr><td>বটতলা → রফিক-জব্বার হল</td><td>0.95 km</td><td>৳5</td><td>৳5</td><td>৳5</td></tr>
-          <tr><td>নতুন কলা → রফিক-জব্বার হল</td><td>1.4 km</td><td>৳9</td><td>৳9</td><td>৳9</td></tr>
-          <tr><td>মেইন গেট → শহিদ মিনার</td><td>0.6 km</td><td>৳5</td><td>৳5</td><td>৳5</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
+    </header>
 
-<!-- SCANNER TAB -->
-<div id="scannerTab" class="tab-content">
-  <div class="scanner-container">
-    <h2>QR কোড স্ক্যান করুন</h2>
-    <div class="qr-box">
-      <div class="scan-line"></div>
-      <div class="qr-corners"><span></span><span></span><span></span><span></span></div>
-      <video id="videoEl" autoplay playsinline></video>
-      <canvas id="qrCanvas" style="display:none"></canvas>
-      <div class="qr-placeholder" id="qrPlaceholder">
-        <div class="qr-icon">⬛</div>
-        <div class="qr-hint">ক্যামেরা চালু করে QR স্ক্যান করুন<br>অথবা নিচে ম্যানুয়াল আইডি লিখুন</div>
-      </div>
-      <button class="btn-primary" id="camBtn" onclick="toggleCamera()" style="margin-top:10px;"> ক্যামেরা চালু করুন</button>
-    </div>
+    <!-- NAV -->
+    <nav class="nav-tabs">
+      <button class="tab-btn active" onclick="goTab('map', this)">লাইভ ম্যাপ</button>
+      <button class="tab-btn" onclick="goTab('fare', this)">ভাড়া হিসাব</button>
+      <button class="tab-btn" onclick="goTab('scanner', this)">স্ক্যানার</button>
+      <button class="tab-btn" onclick="goTab('history', this)">হিস্ট্রি</button>
+    </nav>
 
-    <div class="scan-result" id="scanResult">
-      <div class="success-icon">✓</div>
-      <h3 style="color:#155724;margin-bottom:6px;">যাচাই সফল!</h3>
-      <p style="color:#555;font-size:14px;">যাত্রী বোর্ড করতে পারবেন</p>
-      <div class="user-details">
-        <p><strong>নাম:</strong> <span id="sName">—</span></p>
-        <p><strong>আইডি:</strong> <span id="sId">—</span></p>
-        <p><strong>ধরণ:</strong> <span id="sType">—</span></p>
-        <p><strong>ওয়ালেট:</strong> ৳<span id="sBal">—</span></p>
-      </div>
-      <div class="scan-btns">
-        <button class="btn-primary" onclick="confirmBoard()">বোর্ড করুন</button>
-        <button class="btn-secondary" onclick="cancelScan()">বাতিল</button>
-      </div>
-    </div>
+    <div class="container">
 
-    <div class="manual-entry">
-      <h3>অথবা ম্যানুয়াল এন্ট্রি</h3>
-      <div class="input-row">
-        <input type="text" id="manId" class="input-field" placeholder="ইউনিভার্সিটি আইডি লিখুন (যেমন: 2021001)">
-        <button class="btn-secondary" onclick="verifyManual()">যাচাই করুন</button>
+      <!-- MAP TAB -->
+      <div id="mapTab" class="tab-content active">
+        <div class="map-controls">
+          <div class="stats">
+            <div class="stat-card">
+              <span class="stat-label">মোট কার্ট</span>
+              <span class="stat-value" id="sTot">5</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">চলমান কার্ট</span>
+              <span class="stat-value active" id="sAct">3</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">মোট যাত্রী</span>
+              <span class="stat-value" id="sPas">10</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">খালি আসন</span>
+              <span class="stat-value" id="sFre">14</span>
+            </div>
+          </div>
+        </div>
+        <div id="map"></div>
+        <div class="cart-list">
+          <h3>চলমান কার্ট সমূহ</h3>
+          <div id="cartListContainer"></div>
+        </div>
       </div>
-    </div>
-  </div>
-</div>
 
-<!-- HISTORY TAB -->
-<div id="historyTab" class="tab-content">
-  <div class="history-container">
-    <h2>রাইড হিস্ট্রি</h2>
-    <div class="wallet-card">
-      <div>
-        <div class="wallet-label">ওয়ালেট ব্যালেন্স</div>
-        <div class="wallet-amount">৳<span id="walBal">250</span></div>
+      <!-- FARE TAB -->
+      <div id="fareTab" class="tab-content">
+        <div class="fare-calculator">
+          <h2>ভাড়া ক্যালকুলেটর</h2>
+          <div class="fare-form">
+            <div class="form-group">
+              <label>শুরুর স্থান</label>
+              <select id="fromLocation" class="input-field">
+                <option value="">নির্বাচন করুন</option>
+                <option value="maingate">মেইন গেট</option>
+                <option value="shahid-minar">শহিদ মিনার</option>
+                <option value="srj">শহিদ রফিক-জব্বার হল</option>
+                <option value="bottola">বটতলা</option>
+                <option value="notun-kola">নতুন কলা ভবন</option>
+                <option value="puraton-kola">পুরাতন কলা ভবন</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>গন্তব্য</label>
+              <select id="toLocation" class="input-field">
+                <option value="">নির্বাচন করুন</option>
+                <option value="maingate">মেইন গেট</option>
+                <option value="shahid-minar">শহিদ মিনার</option>
+                <option value="srj">শহিদ রফিক-জব্বার হল</option>
+                <option value="bottola">বটতলা</option>
+                <option value="notun-kola">নতুন কলা ভবন</option>
+                <option value="puraton-kola">পুরাতন কলা ভবন</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>যাত্রী ধরণ</label>
+              <select id="userType" class="input-field">
+                <option value="student">স্টুডেন্ট</option>
+                <option value="staff">স্টাফ</option>
+                <option value="guest">অতিথি</option>
+              </select>
+            </div>
+            <button class="btn-primary btn-full" onclick="calculateFare()">ভাড়া হিসাব করুন</button>
+          </div>
+          <div id="fareResult" class="fare-result" style="display:none">
+            <div class="fare-row"><span>দূরত্ব:</span><span id="fareDistance">-</span></div>
+            <div class="fare-row"><span>যাত্রী ধরণ:</span><span id="fareType">-</span></div>
+            <div class="fare-row total"><span>মোট ভাড়া:</span><span id="totalFare">-</span></div>
+          </div>
+          <div class="fare-table">
+            <h3>ভাড়া তালিকা</h3>
+            <table>
+              <thead>
+                <tr><th>রুট</th><th>দূরত্ব</th><th>স্টুডেন্ট</th><th>স্টাফ</th><th>অতিথি</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>মেইন গেট → রফিক-জব্বার হল</td><td>1.8 km</td><td>৳10</td><td>৳10</td><td>৳10</td></tr>
+                <tr><td>শহিদ মিনার → রফিক-জব্বার হল</td><td>1.2 km</td><td>৳8</td><td>৳8</td><td>৳8</td></tr>
+                <tr><td>বটতলা → রফিক-জব্বার হল</td><td>0.95 km</td><td>৳5</td><td>৳5</td><td>৳5</td></tr>
+                <tr><td>নতুন কলা → রফিক-জব্বার হল</td><td>1.4 km</td><td>৳9</td><td>৳9</td><td>৳9</td></tr>
+                <tr><td>মেইন গেট → শহিদ মিনার</td><td>0.6 km</td><td>৳5</td><td>৳5</td><td>৳5</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
-      <div class="wallet-btns">
-        <button class="btn-secondary" onclick="openTopup()">+ টপ-আপ করুন</button>
+
+      <!-- SCANNER TAB -->
+      <div id="scannerTab" class="tab-content">
+        <div class="scanner-container">
+          <h2>QR কোড স্ক্যান করুন</h2>
+          <div class="qr-box">
+            <div class="scan-line"></div>
+            <div class="qr-corners"><span></span><span></span><span></span><span></span></div>
+            <video id="videoEl" autoplay playsinline></video>
+            <canvas id="qrCanvas" style="display:none"></canvas>
+            <div class="qr-placeholder" id="qrPlaceholder">
+              <div class="qr-icon">⬛</div>
+              <div class="qr-hint">ক্যামেরা চালু করে QR স্ক্যান করুন<br>অথবা নিচে ম্যানুয়াল আইডি লিখুন</div>
+            </div>
+            <button class="btn-primary" id="camBtn" onclick="toggleCamera()" style="margin-top:10px">ক্যামেরা চালু করুন</button>
+          </div>
+
+          <div class="scan-result" id="scanResult">
+            <div class="success-icon">✓</div>
+            <h3 style="color:#155724;margin-bottom:6px">যাচাই সফল!</h3>
+            <p style="color:#555;font-size:14px">যাত্রী বোর্ড করতে পারবেন</p>
+            <div class="user-details">
+              <p><strong>নাম:</strong> <span id="sName">—</span></p>
+              <p><strong>আইডি:</strong> <span id="sId">—</span></p>
+              <p><strong>ধরণ:</strong> <span id="sType">—</span></p>
+              <p><strong>ওয়ালেট:</strong> ৳<span id="sBal">—</span></p>
+            </div>
+            <div class="scan-btns">
+              <button class="btn-primary" onclick="confirmBoard()">বোর্ড করুন</button>
+              <button class="btn-secondary" onclick="cancelScan()">বাতিল</button>
+            </div>
+          </div>
+
+          <div class="manual-entry">
+            <h3>অথবা ম্যানুয়াল এন্ট্রি</h3>
+            <div class="input-row">
+              <input type="text" id="manId" class="input-field" placeholder="ইউনিভার্সিটি আইডি লিখুন (যেমন: 2021001)" />
+              <button class="btn-secondary" onclick="verifyManual()">যাচাই করুন</button>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
-    <div class="ride-history" id="rideHistory">
-      <div class="ride-card">
-        <div class="ride-header"><span class="ride-date">২৭ জানুয়ারি, ২০২৬</span><span class="ride-status completed">সম্পন্ন</span></div>
-        <div class="ride-details"><p><strong>রুট:</strong> মেইন গেট → রফিক-জব্বার হল</p><p><strong>কার্ট নং:</strong> UC-101</p><p><strong>সময়:</strong> 9:30 AM</p><p><strong>ভাড়া:</strong> ৳10</p></div>
+
+      <!-- HISTORY TAB -->
+      <div id="historyTab" class="tab-content">
+        <div class="history-container">
+          <h2>রাইড হিস্ট্রি</h2>
+          <div class="wallet-card">
+            <div>
+              <div class="wallet-label">ওয়ালেট ব্যালেন্স</div>
+              <div class="wallet-amount">৳<span id="walBal">250</span></div>
+            </div>
+            <div class="wallet-btns">
+              <button class="btn-secondary" onclick="openTopup()">+ টপ-আপ করুন</button>
+            </div>
+          </div>
+          <div class="ride-history" id="rideHistory">
+            <div class="ride-card">
+              <div class="ride-header">
+                <span class="ride-date">২৭ জানুয়ারি, ২০২৬</span>
+                <span class="ride-status completed">সম্পন্ন</span>
+              </div>
+              <div class="ride-details">
+                <p><strong>রুট:</strong> মেইন গেট → রফিক-জব্বার হল</p>
+                <p><strong>কার্ট নং:</strong> UC-101</p>
+                <p><strong>সময়:</strong> 9:30 AM</p>
+                <p><strong>ভাড়া:</strong> ৳10</p>
+              </div>
+            </div>
+            <div class="ride-card">
+              <div class="ride-header">
+                <span class="ride-date">২৬ জানুয়ারি, ২০২৬</span>
+                <span class="ride-status completed">সম্পন্ন</span>
+              </div>
+              <div class="ride-details">
+                <p><strong>রুট:</strong> বটতলা → রফিক-জব্বার হল</p>
+                <p><strong>কার্ট নং:</strong> UC-102</p>
+                <p><strong>সময়:</strong> 1:15 PM</p>
+                <p><strong>ভাড়া:</strong> ৳5</p>
+              </div>
+            </div>
+            <div class="ride-card">
+              <div class="ride-header">
+                <span class="ride-date">২৫ জানুয়ারি, ২০২৬</span>
+                <span class="ride-status completed">সম্পন্ন</span>
+              </div>
+              <div class="ride-details">
+                <p><strong>রুট:</strong> শহিদ মিনার → মেইন গেট</p>
+                <p><strong>কার্ট নং:</strong> UC-103</p>
+                <p><strong>সময়:</strong> 4:45 PM</p>
+                <p><strong>ভাড়া:</strong> ৳5</p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="ride-card">
-        <div class="ride-header"><span class="ride-date">২৬ জানুয়ারি, ২০২৬</span><span class="ride-status completed">সম্পন্ন</span></div>
-        <div class="ride-details"><p><strong>রুট:</strong> বটতলা → রফিক-জব্বার হল</p><p><strong>কার্ট নং:</strong> UC-102</p><p><strong>সময়:</strong> 1:15 PM</p><p><strong>ভাড়া:</strong> ৳5</p></div>
-      </div>
-      <div class="ride-card">
-        <div class="ride-header"><span class="ride-date">২৫ জানুয়ারি, ২০২৬</span><span class="ride-status completed">সম্পন্ন</span></div>
-        <div class="ride-details"><p><strong>রুট:</strong> শহিদ মিনার → মেইন গেট</p><p><strong>কার্ট নং:</strong> UC-103</p><p><strong>সময়:</strong> 4:45 PM</p><p><strong>ভাড়া:</strong> ৳5</p></div>
-      </div>
-    </div>
-  </div>
-</div>
 
-</div><!-- /container -->
+    </div><!-- /container -->
 
-<!-- AUTH MODAL -->
-<div class="modal" id="authModal">
-  <div class="modal-content">
-    <span class="close" onclick="closeAuth()">×</span>
-    <h2>অ্যাকাউন্ট</h2>
-    <div class="modal-tabs">
-      <button class="mtab active" id="mtLogin" onclick="switchMTab('login')">লগইন</button>
-      <button class="mtab" id="mtReg" onclick="switchMTab('register')">রেজিস্ট্রেশন</button>
-    </div>
+    <!-- AUTH MODAL -->
+    <div class="modal" id="authModal">
+      <div class="modal-content">
+        <span class="close" onclick="closeAuth()">×</span>
+        <h2>অ্যাকাউন্ট</h2>
 
-    <div id="loginForm">
-      <div class="form-group"><label>স্টুডেন্ট / স্টাফ আইডি</label><input type="text" id="lId" class="input-field" placeholder="যেমন: 2021001"></div>
-      <div class="form-group"><label>পাসওয়ার্ড</label><input type="password" id="lPass" class="input-field" placeholder="পাসওয়ার্ড লিখুন"></div>
-      <button class="btn-primary btn-full" onclick="doLogin()">লগইন করুন →</button>
-      <div class="modal-hint">ডেমো: <strong>আইডি: 2021001</strong> | <strong>পাসওয়ার্ড: 1234</strong></div>
-    </div>
+        <!-- Role Selector -->
+        <div class="role-tabs" id="roleTabs">
+          <button class="role-btn active" id="rolePassenger" onclick="switchRole('passenger')">
+            🎓 যাত্রী
+          </button>
+          <button class="role-btn" id="roleDriver" onclick="switchRole('driver')">
+            🚗 ড্রাইভার
+          </button>
+        </div>
 
-    <div id="regForm" style="display:none">
-      <div class="form-group"><label>পুরো নাম</label><input type="text" id="rName" class="input-field" placeholder="আপনার নাম লিখুন"></div>
-      <div class="form-group"><label>ইউনিভার্সিটি আইডি</label><input type="text" id="rId" class="input-field" placeholder="যেমন: 2023045"></div>
-      <div class="form-group"><label>ধরণ</label><select id="rType" class="input-field"><option value="student">স্টুডেন্ট</option><option value="staff">স্টাফ</option></select></div>
-      <div class="form-group"><label>বিভাগ / ডিপার্টমেন্ট</label><input type="text" id="rDept" class="input-field" placeholder="যেমন: CSE, Math..."></div>
-      <div class="form-group"><label>পাসওয়ার্ড</label><input type="password" id="rPass" class="input-field" placeholder="কমপক্ষে ৬ অক্ষর"></div>
-      <button class="btn-primary btn-full" onclick="doRegister()">রেজিস্ট্রেশন করুন →</button>
-    </div>
+        <!-- PASSENGER SECTION -->
+        <div id="passengerSection">
+          <div class="modal-tabs">
+            <button class="mtab active" id="mtLogin" onclick="switchMTab('login')">লগইন</button>
+            <button class="mtab" id="mtReg" onclick="switchMTab('register')">রেজিস্ট্রেশন</button>
+          </div>
 
-    <div id="qrResultBox" style="display:none">
-      <div class="qr-result-box">
-        <p style="font-weight:700;font-size:16px;color:#28a745;margin-bottom:8px;">✅ রেজিস্ট্রেশন সফল!</p>
-        <div class="qr-name" id="qrUserName"></div>
-        <div class="qr-uid" id="qrUserId"></div>
-        <div id="qrGenDiv"></div>
-        <p style="font-size:13px;color:#888;margin-bottom:14px;">এই QR কোড স্ক্যানারে ধরলে কার্টে উঠতে পারবেন</p>
-        <button class="btn-primary btn-full" onclick="downloadQR()"> QR ডাউনলোড করুন</button>
-        <button class="btn-secondary btn-full" onclick="closeAuth()" style="margin-top:8px;">বন্ধ করুন</button>
+          <div id="loginForm">
+            <div class="form-group">
+              <label>স্টুডেন্ট / স্টাফ আইডি</label>
+              <input type="text" id="lId" class="input-field" placeholder="যেমন: 2021001" />
+            </div>
+            <div class="form-group">
+              <label>পাসওয়ার্ড</label>
+              <input type="password" id="lPass" class="input-field" placeholder="পাসওয়ার্ড লিখুন" />
+            </div>
+            <button class="btn-primary btn-full" onclick="doLogin()">লগইন করুন →</button>
+            <div class="modal-hint">ডেমো: <strong>আইডি: 2021001</strong> | <strong>পাসওয়ার্ড: 1234</strong></div>
+          </div>
+
+          <div id="regForm" style="display:none">
+            <div class="form-group">
+              <label>পুরো নাম</label>
+              <input type="text" id="rName" class="input-field" placeholder="আপনার নাম লিখুন" />
+            </div>
+            <div class="form-group">
+              <label>ইউনিভার্সিটি আইডি</label>
+              <input type="text" id="rId" class="input-field" placeholder="যেমন: 2023045" />
+            </div>
+            <div class="form-group">
+              <label>ধরণ</label>
+              <select id="rType" class="input-field">
+                <option value="student">স্টুডেন্ট</option>
+                <option value="staff">স্টাফ</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>বিভাগ / ডিপার্টমেন্ট</label>
+              <input type="text" id="rDept" class="input-field" placeholder="যেমন: CSE, Math..." />
+            </div>
+            <div class="form-group">
+              <label>পাসওয়ার্ড</label>
+              <input type="password" id="rPass" class="input-field" placeholder="কমপক্ষে ৬ অক্ষর" />
+            </div>
+            <button type="button" class="btn-primary btn-full" onclick="doRegister()">রেজিস্ট্রেশন করুন →</button>
+          </div>
+
+          <div id="qrResultBox" style="display:none">
+            <div class="qr-result-box">
+              <p style="font-weight:700;font-size:16px;color:#28a745;margin-bottom:8px">✅ রেজিস্ট্রেশন সফল!</p>
+              <div class="qr-name" id="qrUserName"></div>
+              <div class="qr-uid" id="qrUserId"></div>
+              <div id="qrGenDiv"></div>
+              <p style="font-size:13px;color:#888;margin-bottom:14px">এই QR কোড স্ক্যানারে ধরলে কার্টে উঠতে পারবেন</p>
+              <button class="btn-primary btn-full" onclick="downloadQR()">QR ডাউনলোড করুন</button>
+              <button class="btn-secondary btn-full" onclick="closeAuth()" style="margin-top:8px">বন্ধ করুন</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- DRIVER SECTION -->
+        <div id="driverSection" style="display:none">
+          <div class="modal-tabs">
+            <button class="mtab active" id="dtLogin" onclick="switchDriverTab('login')">লগইন</button>
+            <button class="mtab" id="dtReg" onclick="switchDriverTab('register')">রেজিস্ট্রেশন</button>
+          </div>
+
+          <div id="driverLoginForm">
+            <div class="form-group">
+              <label>ড্রাইভার আইডি</label>
+              <input type="text" id="dlId" class="input-field" placeholder="যেমন: DRV001" />
+            </div>
+            <div class="form-group">
+              <label>পাসওয়ার্ড</label>
+              <input type="password" id="dlPass" class="input-field" placeholder="পাসওয়ার্ড লিখুন" />
+            </div>
+            <button class="btn-primary btn-full" onclick="doDriverLogin()">ড্রাইভার লগইন →</button>
+            <div class="modal-hint">ডেমো: <strong>আইডি: DRV001</strong> | <strong>পাসওয়ার্ড: 1234</strong></div>
+          </div>
+
+          <div id="driverRegForm" style="display:none">
+            <div class="form-group">
+              <label>পুরো নাম</label>
+              <input type="text" id="drName" class="input-field" placeholder="ড্রাইভারের নাম" />
+            </div>
+            <div class="form-group">
+              <label>ড্রাইভার আইডি</label>
+              <input type="text" id="drId" class="input-field" placeholder="যেমন: DRV005" />
+            </div>
+            <div class="form-group">
+              <label>ফোন নম্বর</label>
+              <input type="text" id="drPhone" class="input-field" placeholder="০১XXXXXXXXX" />
+            </div>
+            <div class="form-group">
+              <label>কার্ট নম্বর</label>
+              <select id="drCart" class="input-field">
+                <option value="UC-101">UC-101</option>
+                <option value="UC-102">UC-102</option>
+                <option value="UC-103">UC-103</option>
+                <option value="UC-104">UC-104</option>
+                <option value="UC-105">UC-105</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>পাসওয়ার্ড</label>
+              <input type="password" id="drPass" class="input-field" placeholder="কমপক্ষে ৬ অক্ষর" />
+            </div>
+            <button type="button" class="btn-primary btn-full" onclick="doDriverRegister()">ড্রাইভার রেজিস্ট্রেশন →</button>
+          </div>
+
+          <!-- Driver Dashboard (shown after driver login) -->
+          <div id="driverDashboard" style="display:none">
+            <div class="driver-dash">
+              <div class="driver-welcome">
+                <span class="driver-avatar">🚗</span>
+                <div>
+                  <div class="driver-name" id="driverWelcomeName"></div>
+                  <div class="driver-cart-id" id="driverCartId"></div>
+                </div>
+              </div>
+              <div class="driver-status-row">
+                <span>স্ট্যাটাস:</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="driverStatusToggle" onchange="toggleDriverStatus()" />
+                  <span class="toggle-slider"></span>
+                </label>
+                <span id="driverStatusLabel" style="font-weight:700;color:#dc3545">অফলাইন</span>
+              </div>
+              <div class="driver-stats">
+                <div class="driver-stat"><span>আজকের রাইড</span><strong id="dTodayRides">0</strong></div>
+                <div class="driver-stat"><span>আজকের আয়</span><strong id="dTodayEarning">৳0</strong></div>
+              </div>
+              <button class="btn-danger btn-full" onclick="doDriverLogout()" style="margin-top:12px">লগআউট</button>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
-  </div>
-</div>
 
-<!-- TOPUP MODAL -->
-<div class="modal" id="topupModal">
-  <div class="modal-content">
-    <span class="close" onclick="closeTopup()">×</span>
-    <h2>ওয়ালেট টপ-আপ</h2>
-    <div class="form-group">
-      <label>দ্রুত পরিমাণ নির্বাচন করুন</label>
-      <div class="topup-grid">
-        <button class="tp-btn" onclick="setTP(50)">৳50</button>
-        <button class="tp-btn" onclick="setTP(100)">৳100</button>
-        <button class="tp-btn" onclick="setTP(200)">৳200</button>
-        <button class="tp-btn" onclick="setTP(500)">৳500</button>
-        <button class="tp-btn" onclick="setTP(1000)">৳1000</button>
-        <button class="tp-btn" onclick="setTP(2000)">৳2000</button>
+    <!-- TOPUP MODAL -->
+    <div class="modal" id="topupModal">
+      <div class="modal-content">
+        <span class="close" onclick="closeTopup()">×</span>
+        <h2>ওয়ালেট টপ-আপ</h2>
+        <div class="form-group">
+          <label>দ্রুত পরিমাণ নির্বাচন করুন</label>
+          <div class="topup-grid">
+            <button class="tp-btn" onclick="setTP(50)">৳50</button>
+            <button class="tp-btn" onclick="setTP(100)">৳100</button>
+            <button class="tp-btn" onclick="setTP(200)">৳200</button>
+            <button class="tp-btn" onclick="setTP(500)">৳500</button>
+            <button class="tp-btn" onclick="setTP(1000)">৳1000</button>
+            <button class="tp-btn" onclick="setTP(2000)">৳2000</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>অথবা পরিমাণ লিখুন</label>
+          <input type="number" id="tpAmt" class="input-field" placeholder="পরিমাণ লিখুন" />
+        </div>
+        <button class="btn-primary btn-full" onclick="doTopup()">✅ টপ-আপ নিশ্চিত করুন</button>
       </div>
     </div>
-    <div class="form-group"><label>অথবা পরিমাণ লিখুন</label><input type="number" id="tpAmt" class="input-field" placeholder="পরিমাণ লিখুন"></div>
-    <button class="btn-primary btn-full" onclick="doTopup()">✅ টপ-আপ নিশ্চিত করুন</button>
-  </div>
-</div>
 
-<script>
-// ── DATA ──
-function loadUsers(){try{return JSON.parse(localStorage.getItem('uc_users')||'[]');}catch(e){return[];}}
-function saveUsers(u){localStorage.setItem('uc_users',JSON.stringify(u));}
-function loadMe(){try{return JSON.parse(localStorage.getItem('uc_me')||'null');}catch(e){return null;}}
-function saveMe(u){localStorage.setItem('uc_me',u?JSON.stringify(u):'null');}
-if(loadUsers().length===0){saveUsers([
-  {id:'2021001',name:'রহিম আহমেদ',type:'student',dept:'CSE',password:'1234',balance:250},
-  {id:'2021002',name:'করিম হোসেন',type:'student',dept:'Math',password:'1234',balance:180},
-  {id:'S001',name:'ফারহানা বেগম',type:'staff',dept:'Admin',password:'1234',balance:500},
-]);}
-let currentUser=loadMe();
-
-// ── JU CAMPUS DATA ──
-const LOCS={
-  maingate:{name:'মেইন গেট',lat:23.8776,lng:90.2687},
-  'shahid-minar':{name:'শহিদ মিনার',lat:23.8792,lng:90.2712},
-  bottola:{name:'বটতলা',lat:23.8804,lng:90.2735},
-  srj:{name:'শহিদ রফিক-জব্বার হল',lat:23.8829,lng:90.2776},
-  'notun-kola':{name:'নতুন কলা ভবন',lat:23.8816,lng:90.2754},
-  'puraton-kola':{name:'পুরাতন কলা ভবন',lat:23.8841,lng:90.2791},
-};
-const CARTS=[
-  {id:'UC-101',driver:'আব্দুল করিম',lat:23.8776,lng:90.2687,passengers:3,capacity:6,status:'active',route:'মেইন গেট → শহিদ রফিক-জব্বার হল'},
-  {id:'UC-102',driver:'মোহাম্মদ আলী',lat:23.8792,lng:90.2712,passengers:5,capacity:8,status:'active',route:'মেইন গেট → বিশমাইল'},
-  {id:'UC-103',driver:'জামাল উদ্দিন',lat:23.8804,lng:90.2735,passengers:2,capacity:6,status:'active',route:'প্রান্তিক গেট → শহিদ মিনার'},
-  {id:'UC-104',driver:'রফিক মিয়া',lat:23.8829,lng:90.2776,passengers:0,capacity:8,status:'inactive',route:'বিরতি'},
-  {id:'UC-105',driver:'হাসান আলী',lat:23.8841,lng:90.2791,passengers:0,capacity:6,status:'inactive',route:'বিরতি'},
-];
-const FARES={
-  'maingate-srj':{distance:1.8,student:10,staff:10,guest:10},
-  'shahid-minar-srj':{distance:1.2,student:8,staff:8,guest:8},
-  'bottola-srj':{distance:0.95,student:5,staff:5,guest:5},
-  'maingate-shahid-minar':{distance:0.6,student:5,staff:5,guest:5},
-  'notun-kola-srj':{distance:1.4,student:9,staff:9,guest:9},
-  'puraton-kola-srj':{distance:1.6,student:10,staff:10,guest:10},
-};
-
-// ── MAP ──
-let leafMap,cartMarkers=[];
-function initMap(){
-  leafMap=L.map('map').setView([23.8805,90.2745],16);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(leafMap);
-  Object.values(LOCS).forEach(loc=>{
-    L.marker([loc.lat,loc.lng],{
-      icon:L.divIcon({className:'',html:`<div style="background:rgba(40,167,69,.9);color:white;font-size:10px;font-weight:700;padding:3px 8px;border-radius:5px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.3)">${loc.name}</div>`,iconAnchor:[40,10]})
-    }).addTo(leafMap);
-  });
-  renderMarkers();setInterval(moveSim,3000);
-}
-function renderMarkers(){
-  cartMarkers.forEach(m=>leafMap.removeLayer(m));cartMarkers=[];
-  CARTS.filter(c=>c.status==='active').forEach(cart=>{
-    const p=cart.passengers/cart.capacity;
-    const col=p>=1?'#dc3545':p>=.7?'#ffc107':'#28a745';
-    const m=L.marker([cart.lat,cart.lng],{
-      icon:L.divIcon({className:'',html:`<div style="background:white;border:3px solid ${col};border-radius:50%;width:44px;height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(0,0,0,.3);cursor:pointer"><span style="font-size:19px">🚗</span><span style="font-size:9px;color:${col};font-weight:700">${cart.passengers}/${cart.capacity}</span></div>`,iconAnchor:[22,22]})
-    }).addTo(leafMap);
-    m.bindPopup(`<div style="text-align:center;font-family:'Segoe UI',sans-serif"><b style="color:#667eea">${cart.id}</b><br>ড্রাইভার: ${cart.driver}<br>যাত্রী: <span style="color:${col};font-weight:700">${cart.passengers}/${cart.capacity}</span><br><small style="color:#888">রুট: ${cart.route}</small></div>`);
-    cartMarkers.push(m);
-  });
-}
-function moveSim(){
-  CARTS.forEach(c=>{
-    if(c.status==='active'){
-      c.lat+=((Math.random()-.5)*.0003);c.lng+=((Math.random()-.5)*.0003);
-      c.lat=Math.min(Math.max(c.lat,23.875),23.886);c.lng=Math.min(Math.max(c.lng,90.265),90.281);
-    }
-  });
-  renderMarkers();renderCartList();updateStats();
-}
-
-// ── STATS ──
-function updateStats(){
-  const act=CARTS.filter(c=>c.status==='active');
-  const pass=CARTS.reduce((s,c)=>s+c.passengers,0);
-  const free=act.reduce((s,c)=>s+(c.capacity-c.passengers),0);
-  document.getElementById('sTot').textContent=CARTS.length;
-  document.getElementById('sAct').textContent=act.length;
-  document.getElementById('sPas').textContent=pass;
-  document.getElementById('sFre').textContent=free;
-}
-
-// ── CART LIST ──
-function renderCartList(){
-  const con=document.getElementById('cartListContainer');con.innerHTML='';
-  CARTS.filter(c=>c.status==='active').forEach(cart=>{
-    const p=cart.passengers/cart.capacity;
-    const fc=p>=1?'full':p>=.7?'mid':'';
-    const free=cart.capacity-cart.passengers;
-    const el=document.createElement('div');el.className='cart-item';
-    el.innerHTML=`<div class="cart-info">
-      <div class="cart-number">${cart.id}</div>
-      <div class="cart-status active">চলমান</div>
-      <div class="cart-passengers">যাত্রী: ${cart.passengers}/${cart.capacity} &nbsp;|&nbsp; <span style="color:#28a745;font-weight:600">খালি: ${free}</span></div>
-      <div class="seat-text"><span>${Math.round(p*100)}% পূর্ণ</span><span>রুট: ${cart.route}</span></div>
-      <div class="seat-bar"><div class="seat-fill ${fc}" style="width:${Math.round(p*100)}%"></div></div>
+    <!-- LIVE TRACK MODAL -->
+    <div class="modal" id="trackModal">
+      <div class="modal-content" style="max-width:700px">
+        <span class="close" onclick="closeTrackModal()">×</span>
+        <h2 id="trackModalTitle">কার্ট ট্র্যাক করুন</h2>
+        <div id="trackMap" style="height:400px;border-radius:12px;margin:16px 0"></div>
+        <div id="trackInfo" class="track-info-box"></div>
+      </div>
     </div>
-    <button class="btn-secondary" onclick="trackCart('${cart.id}')">ট্র্যাক করুন</button>`;
-    con.appendChild(el);
-  });
-}
-function trackCart(id){
-  const cart=CARTS.find(c=>c.id===id);if(!cart)return;
-  goTab('map',document.querySelectorAll('.tab-btn')[0]);
-  leafMap.setView([cart.lat,cart.lng],18);
-  const idx=CARTS.filter(c=>c.status==='active').findIndex(c=>c.id===id);
-  if(cartMarkers[idx])cartMarkers[idx].openPopup();
-}
 
-// ── TAB ──
-function goTab(name,btn){
-  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById(name+'Tab').classList.add('active');
-  if(btn)btn.classList.add('active');
-}
-
-// ── AUTH ──
-function openAuth(){document.getElementById('authModal').classList.add('open');}
-function closeAuth(){
-  document.getElementById('authModal').classList.remove('open');
-  document.getElementById('qrResultBox').style.display='none';
-  document.getElementById('loginForm').style.display='block';
-  document.getElementById('regForm').style.display='none';
-  switchMTab('login');
-}
-function switchMTab(t){
-  document.getElementById('mtLogin').classList.toggle('active',t==='login');
-  document.getElementById('mtReg').classList.toggle('active',t==='register');
-  document.getElementById('loginForm').style.display=t==='login'?'block':'none';
-  document.getElementById('regForm').style.display=t==='register'?'block':'none';
-  document.getElementById('qrResultBox').style.display='none';
-}
-function doLogin(){
-  const id=document.getElementById('lId').value.trim();
-  const pw=document.getElementById('lPass').value;
-  if(!id||!pw){toast('⚠️','আইডি ও পাসওয়ার্ড লিখুন','warn');return;}
-  const user=loadUsers().find(u=>u.id===id&&u.password===pw);
-  if(!user){toast('❌','ভুল আইডি বা পাসওয়ার্ড!','err');return;}
-  currentUser=user;saveMe(user);updateUserUI();closeAuth();
-  toast('✓',`স্বাগতম, ${user.name}!`,'ok');
-}
-function doRegister(){
-  const name=document.getElementById('rName').value.trim();
-  const id=document.getElementById('rId').value.trim();
-  const type=document.getElementById('rType').value;
-  const dept=document.getElementById('rDept').value.trim();
-  const pw=document.getElementById('rPass').value;
-  if(!name||!id||!dept||!pw){toast('⚠️','সব ঘর পূরণ করুন','warn');return;}
-  if(pw.length<6){toast('⚠️','পাসওয়ার্ড কমপক্ষে ৬ অক্ষর হতে হবে','warn');return;}
-  const users=loadUsers();
-  if(users.find(u=>u.id===id)){toast('❌','এই আইডি ইতিমধ্যে নিবন্ধিত!','err');return;}
-  const u={id,name,type,dept,password:pw,balance:100};
-  users.push(u);saveUsers(users);currentUser=u;saveMe(u);updateUserUI();
-  showQR(u);toast('✓','রেজিস্ট্রেশন সফল! QR কোড তৈরি হয়েছে','ok');
-}
-function showQR(user){
-  document.getElementById('loginForm').style.display='none';
-  document.getElementById('regForm').style.display='none';
-  document.getElementById('qrResultBox').style.display='block';
-  document.getElementById('qrUserName').textContent=user.name;
-  document.getElementById('qrUserId').textContent=`আইডি: ${user.id} • ${user.type==='student'?'স্টুডেন্ট':'স্টাফ'} • ${user.dept}`;
-  const div=document.getElementById('qrGenDiv');div.innerHTML='';
-  new QRCode(div,{text:JSON.stringify({id:user.id,name:user.name,type:user.type}),width:200,height:200,colorDark:'#333',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.H});
-}
-function downloadQR(){
-  setTimeout(()=>{
-    const canvas=document.querySelector('#qrGenDiv canvas');
-    if(!canvas){toast('❌','QR পাওয়া যায়নি','err');return;}
-    const a=document.createElement('a');a.download=`unicart_${currentUser.id}.png`;a.href=canvas.toDataURL();a.click();
-    toast('✓','QR ডাউনলোড হচ্ছে...','ok');
-  },100);
-}
-function updateUserUI(){
-  const btn=document.getElementById('authBtn');
-  if(currentUser){
-    document.getElementById('userName').textContent=currentUser.name;
-    document.getElementById('userName').className='loggedin';
-    document.getElementById('walBal').textContent=currentUser.balance;
-    btn.textContent='লগআউট';btn.onclick=doLogout;btn.className='btn-danger';
-  }else{
-    document.getElementById('userName').textContent='রেজিস্ট্রার/ লগইন করুন';
-    document.getElementById('userName').className='';
-    btn.textContent='লগইন';btn.onclick=openAuth;btn.className='btn-secondary';
-  }
-}
-function doLogout(){currentUser=null;saveMe(null);updateUserUI();toast('👋','লগআউট সফল','ok');}
-
-// ── LIVE QR SCANNER ──
-let camStream=null,scanLoop=null,scannedUser=null;
-function toggleCamera(){
-  if(camStream){stopCamera();return;}
-  navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}})
-    .then(stream=>{
-      camStream=stream;
-      const v=document.getElementById('videoEl');v.srcObject=stream;v.classList.add('on');
-      document.getElementById('qrPlaceholder').style.display='none';
-      document.getElementById('camBtn').textContent='📷 ক্যামেরা বন্ধ করুন';
-      startLoop();
-    })
-    .catch(()=>toast('❌','ক্যামেরা অ্যাক্সেস দিন অথবা ম্যানুয়াল আইডি ব্যবহার করুন','err'));
-}
-function stopCamera(){
-  if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null;}
-  if(scanLoop){cancelAnimationFrame(scanLoop);scanLoop=null;}
-  const v=document.getElementById('videoEl');v.classList.remove('on');
-  document.getElementById('qrPlaceholder').style.display='block';
-  document.getElementById('camBtn').textContent='📷 ক্যামেরা চালু করুন';
-}
-function startLoop(){
-  const v=document.getElementById('videoEl'),c=document.getElementById('qrCanvas'),ctx=c.getContext('2d');
-  function tick(){
-    if(v.readyState===v.HAVE_ENOUGH_DATA){
-      c.height=v.videoHeight;c.width=v.videoWidth;ctx.drawImage(v,0,0,c.width,c.height);
-      const img=ctx.getImageData(0,0,c.width,c.height);
-      const code=jsQR(img.data,img.width,img.height,{inversionAttempts:'dontInvert'});
-      if(code){
-        try{
-          const data=JSON.parse(code.data);
-          if(data.id&&data.name){
-            const user=loadUsers().find(u=>u.id===data.id);
-            if(user){showScanResult(user);stopCamera();return;}
-            else toast('❌','অজানা QR — নিবন্ধিত নয়','err');
-          }
-        }catch(e){toast('⚠️','QR পড়া যাচ্ছে না','warn');}
-      }
-    }
-    scanLoop=requestAnimationFrame(tick);
-  }
-  scanLoop=requestAnimationFrame(tick);
-}
-function verifyManual(){
-  const id=document.getElementById('manId').value.trim();
-  if(!id){toast('⚠️','আইডি লিখুন','warn');return;}
-  const user=loadUsers().find(u=>u.id===id);
-  if(!user){toast('❌','এই আইডি নিবন্ধিত নয়','err');return;}
-  showScanResult(user);
-}
-function showScanResult(user){
-  scannedUser=user;
-  document.getElementById('sName').textContent=user.name;
-  document.getElementById('sId').textContent=user.id;
-  document.getElementById('sType').textContent=user.type==='student'?'🎓 স্টুডেন্ট':'👨‍💼 স্টাফ';
-  document.getElementById('sBal').textContent=user.balance;
-  document.getElementById('scanResult').style.display='block';
-  toast('✓',`${user.name} যাচাই সম্পন্ন`,'ok');
-}
-function confirmBoard(){
-  if(!scannedUser)return;
-  const cart=CARTS.find(c=>c.status==='active'&&c.passengers<c.capacity);
-  if(cart){cart.passengers++;renderCartList();updateStats();renderMarkers();}
-  toast('🚗',`${scannedUser.name} সফলভাবে বোর্ড হয়েছেন!`,'ok');cancelScan();
-}
-function cancelScan(){
-  scannedUser=null;document.getElementById('scanResult').style.display='none';document.getElementById('manId').value='';
-}
-
-// ── FARE ──
-function calculateFare(){
-  const from=document.getElementById('fromLocation').value;
-  const to=document.getElementById('toLocation').value;
-  const type=document.getElementById('userType').value;
-  if(!from||!to){toast('⚠️','শুরু ও গন্তব্য নির্বাচন করুন','warn');return;}
-  if(from===to){toast('⚠️','একই স্থান নির্বাচন করা যাবে না','warn');return;}
-  const rule=FARES[`${from}-${to}`]||FARES[`${to}-${from}`];
-  let dist=1.0,fare=type==='student'?8:type==='staff'?9:10;
-  if(rule){dist=rule.distance;fare=rule[type];}
-  const names={student:'স্টুডেন্ট',staff:'স্টাফ',guest:'অতিথি'};
-  document.getElementById('fareDistance').textContent=dist+' km';
-  document.getElementById('fareType').textContent=names[type];
-  document.getElementById('totalFare').textContent='৳'+fare;
-  document.getElementById('fareResult').style.display='block';
-}
-
-// ── TOPUP ──
-function openTopup(){
-  if(!currentUser){toast('⚠️','প্রথমে লগইন করুন','warn');openAuth();return;}
-  document.getElementById('topupModal').classList.add('open');
-}
-function closeTopup(){document.getElementById('topupModal').classList.remove('open');}
-function setTP(v){document.getElementById('tpAmt').value=v;}
-function doTopup(){
-  const amt=parseFloat(document.getElementById('tpAmt').value);
-  if(!amt||amt<=0){toast('⚠️','সঠিক পরিমাণ লিখুন','warn');return;}
-  currentUser.balance+=amt;
-  const users=loadUsers(),i=users.findIndex(u=>u.id===currentUser.id);
-  if(i>-1){users[i].balance=currentUser.balance;saveUsers(users);}
-  saveMe(currentUser);document.getElementById('walBal').textContent=currentUser.balance;
-  closeTopup();toast('💰',`৳${amt} সফলভাবে যোগ হয়েছে!`,'ok');
-}
-
-// ── TOAST ──
-function toast(icon,msg,type='ok'){
-  const t=document.getElementById('toast');
-  document.getElementById('t-ico').textContent=icon;document.getElementById('t-msg').textContent=msg;
-  t.className=`toast ${type} show`;
-  clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),3200);
-}
-
-// ── INIT ──
-window.onload=()=>{
-  initMap();renderCartList();updateStats();updateUserUI();
-  document.querySelectorAll('.modal').forEach(m=>{
-    m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');});
-  });
-  setInterval(()=>{
-    document.querySelectorAll('.stat-value').forEach(s=>{
-      s.style.transform='scale(1.1)';setTimeout(()=>s.style.transform='scale(1)',200);
-    });
-  },5000);
-};
-</script>
-</body>
+    <script src="./index.js"></script>
+  </body>
 </html>
