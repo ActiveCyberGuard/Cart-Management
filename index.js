@@ -23,6 +23,13 @@ function loadDriverMe() {
 }
 function saveDriverMe(d) { localStorage.setItem("uc_driver_me", d ? JSON.stringify(d) : "null"); }
 
+// Rides (ride history) — array of { userId, date, time, from, to, fromName, toName, cartId, fare, status }
+function loadRides() {
+  try { return JSON.parse(localStorage.getItem("uc_rides") || "[]"); }
+  catch (e) { return []; }
+}
+function saveRides(r) { localStorage.setItem("uc_rides", JSON.stringify(r)); }
+
 // Seed default passengers
 if (loadUsers().length === 0) {
   saveUsers([
@@ -37,6 +44,14 @@ if (loadDrivers().length === 0) {
     { id: "DRV001", name: "আব্দুল করিম",   phone: "01711000001", cartId: "UC-101", password: "1234", todayRides: 5,  todayEarning: 50,  online: false },
     { id: "DRV002", name: "মোহাম্মদ আলী", phone: "01711000002", cartId: "UC-102", password: "1234", todayRides: 3,  todayEarning: 30,  online: false },
     { id: "DRV003", name: "জামাল উদ্দিন",  phone: "01711000003", cartId: "UC-103", password: "1234", todayRides: 7,  todayEarning: 65,  online: false },
+  ]);
+}
+// Seed a few demo rides only if nothing exists yet, attached to demo user 2021001
+if (loadRides().length === 0) {
+  saveRides([
+    { userId: "2021001", date: "২৭ জানুয়ারি, ২০২৬", time: "9:30 AM",  fromName: "মেইন গেট",   toName: "শহিদ রফিক-জব্বার হল", cartId: "UC-101", fare: 10, status: "completed" },
+    { userId: "2021001", date: "২৬ জানুয়ারি, ২০২৬", time: "1:15 PM",  fromName: "বটতলা",       toName: "শহিদ রফিক-জব্বার হল", cartId: "UC-102", fare: 5,  status: "completed" },
+    { userId: "2021001", date: "২৫ জানুয়ারি, ২০২৬", time: "4:45 PM",  fromName: "শহিদ মিনার",  toName: "মেইন গেট",             cartId: "UC-103", fare: 5,  status: "completed" },
   ]);
 }
 
@@ -76,10 +91,59 @@ const FARES = {
   "puraton-kola-srj":      { distance: 1.6,  student: 10, staff: 10, guest: 10 },
 };
 
+function fareFor(fromKey, toKey, type) {
+  const rule = FARES[`${fromKey}-${toKey}`] || FARES[`${toKey}-${fromKey}`];
+  if (rule) return { distance: rule.distance, fare: rule[type] };
+  // fallback flat estimate when no exact rule exists
+  const fallback = type === "student" ? 8 : type === "staff" ? 9 : 10;
+  return { distance: 1.0, fare: fallback };
+}
+
 // ══════════════════════════════════════════════════
-//  MAP
+//  MAP — REALISTIC SMOOTH MOVEMENT ENGINE
+//
+//  Each active cart travels back & forth along a fixed path built from
+//  real campus coordinates. Rather than "jumping" to a new spot every
+//  tick, every cart now has its own target speed (km/h-like value),
+//  gently accelerates / decelerates near turns and path-ends, and is
+//  re-rendered on every animation frame via requestAnimationFrame for
+//  buttery-smooth, realistic gliding motion (like a live GPS tracker).
 // ══════════════════════════════════════════════════
 let leafMap, cartMarkers = [];
+let simAnimHandle = null;
+let lastSimTs = null;
+
+// Rough conversion: at JU's latitude, 1 degree ≈ 111.1 km.
+const DEG_PER_METER = 1 / 111100;
+
+// Give every cart a route path (array of {lat,lng}) to travel back & forth on,
+// plus motion state: current segment, progress fraction, direction, current
+// speed and a target/base speed so movement can ease in & out naturally.
+function buildCartPath(cart) {
+  const pts = buildRouteCoords(cart).map((c) => ({ lat: c[0], lng: c[1] }));
+  // ensure at least 2 points so motion is possible
+  if (pts.length < 2) {
+    pts.push({ lat: cart.lat + 0.0008, lng: cart.lng + 0.0008 });
+    pts.unshift({ lat: cart.lat, lng: cart.lng });
+  }
+  return pts;
+}
+
+// Haversine-ish flat-earth distance in meters (fine for short campus hops)
+function segDistanceMeters(a, b) {
+  const dLat = (b.lat - a.lat) / DEG_PER_METER;
+  const dLng = (b.lng - a.lng) / DEG_PER_METER * Math.cos((a.lat * Math.PI) / 180);
+  return Math.sqrt(dLat * dLat + dLng * dLng);
+}
+
+CARTS.forEach((c) => {
+  c.path = buildCartPath(c);
+  c.segIndex = 0;                       // which segment of the path we're travelling on
+  c.segProgress = Math.random();        // 0..1 progress along that segment
+  c.direction = 1;                      // 1 = forward along path, -1 = backward
+  c.baseSpeed = 1.6 + Math.random() * 0.8; // each cart has a slightly different "personality" speed (m/s, ~6-8 km/h golf-cart pace)
+  c.curSpeed = c.baseSpeed;             // current eased speed (accelerates/decelerates)
+});
 
 function initMap() {
   leafMap = L.map("map").setView([LIVE_LOCATION_ANCHOR.lat, LIVE_LOCATION_ANCHOR.lng], 16);
@@ -110,7 +174,17 @@ function initMap() {
   }).addTo(leafMap).bindPopup(`<b>Jahangirnagar University</b><br>Live location anchor`);
 
   renderMarkers();
-  setInterval(moveSim, 3000);
+
+  // Drive the simulation with requestAnimationFrame instead of a fixed
+  // setInterval tick. This decouples movement from a clock-step and lets
+  // every cart move a *physically correct* tiny distance every single
+  // frame (~60fps), which is what makes it look like real, continuous
+  // GPS-tracked motion instead of a robot teleporting every second.
+  lastSimTs = null;
+  simAnimHandle = requestAnimationFrame(simStep);
+
+  // Slower-cadence UI refresh (list/stats don't need 60fps updates)
+  setInterval(() => { renderCartList(); updateStats(); }, 1000);
 }
 
 function renderMarkers() {
@@ -122,7 +196,7 @@ function renderMarkers() {
     const m = L.marker([cart.lat, cart.lng], {
       icon: L.divIcon({
         className: "",
-        html: `<div style="background:white;border:3px solid ${col};border-radius:50%;width:44px;height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(0,0,0,.3);cursor:pointer"><span style="font-size:19px">🚗</span><span style="font-size:9px;color:${col};font-weight:700">${cart.passengers}/${cart.capacity}</span></div>`,
+        html: cartIconHtml(cart, col),
         iconAnchor: [22, 22],
       }),
     }).addTo(leafMap);
@@ -138,18 +212,93 @@ function renderMarkers() {
   });
 }
 
-function moveSim() {
-  CARTS.forEach((c) => {
-    if (c.status === "active") {
-      c.lat += (Math.random() - 0.5) * 0.0003;
-      c.lng += (Math.random() - 0.5) * 0.0003;
-      c.lat = Math.min(Math.max(c.lat, 23.875), 23.886);
-      c.lng = Math.min(Math.max(c.lng, 90.265), 90.281);
-    }
+// Cart marker HTML — icon stays upright (no rotation) while still moving
+// smoothly along the path; only position glides, the car emoji itself
+// always faces straight up.
+function cartIconHtml(cart, col) {
+  return `<div style="background:white;border:3px solid ${col};border-radius:50%;width:44px;height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(0,0,0,.3);cursor:pointer">
+    <span style="font-size:19px;display:inline-block">🚗</span>
+    <span style="font-size:9px;color:${col};font-weight:700">${cart.passengers}/${cart.capacity}</span>
+  </div>`;
+}
+
+// ── Main simulation loop (runs every animation frame, ~60fps) ──
+function simStep(ts) {
+  if (lastSimTs == null) lastSimTs = ts;
+  let dt = (ts - lastSimTs) / 1000; // seconds since last frame
+  lastSimTs = ts;
+  // Clamp dt so a tab coming back from background doesn't cause one giant jump
+  dt = Math.min(dt, 0.1);
+
+  const active = CARTS.filter((c) => c.status === "active");
+
+  active.forEach((c) => {
+    if (!c.path || c.path.length < 2) c.path = buildCartPath(c);
+    moveCartRealistically(c, dt);
   });
-  renderMarkers();
-  renderCartList();
-  updateStats();
+
+  // Push new positions straight into the existing Leaflet markers every
+  // single frame — this produces a continuous, fluid glide along the
+  // road. The car icon itself stays upright; only its position moves.
+  active.forEach((cart, i) => {
+    const marker = cartMarkers[i];
+    if (!marker) return;
+    marker.setLatLng([cart.lat, cart.lng]);
+  });
+
+  simAnimHandle = requestAnimationFrame(simStep);
+}
+
+// Moves a single cart a realistic distance along its path this frame,
+// with gentle acceleration/deceleration near path ends & turns so it
+// doesn't move at a robotic constant speed.
+function moveCartRealistically(c, dt) {
+  const a = c.path[c.segIndex];
+  const b = c.path[c.segIndex + 1] || a;
+  const segLenM = Math.max(1, segDistanceMeters(a, b));
+
+  // Ease speed toward the cart's base speed (simple critically-damped
+  // approach) — gives a soft accelerate/decelerate feel rather than an
+  // instant constant velocity.
+  const speedEase = 1 - Math.exp(-dt * 1.5);
+  c.curSpeed += (c.baseSpeed - c.curSpeed) * speedEase;
+
+  // Slow down a little when close to either end of the current segment —
+  // mimics a golf cart easing into a stop/turn rather than snapping.
+  const distFromStart = c.segProgress;
+  const distFromEnd = 1 - c.segProgress;
+  const slowZone = 0.12; // last/first 12% of a segment
+  let speedFactor = 1;
+  if (distFromEnd < slowZone) speedFactor = Math.min(speedFactor, 0.35 + 0.65 * (distFromEnd / slowZone));
+  if (distFromStart < slowZone) speedFactor = Math.min(speedFactor, 0.45 + 0.55 * (distFromStart / slowZone));
+
+  const metersThisFrame = c.curSpeed * speedFactor * dt;
+  const progressDelta = metersThisFrame / segLenM;
+
+  c.segProgress += c.direction * progressDelta;
+
+  // Handle segment / path-end transitions, bouncing back and forth
+  while (c.segProgress > 1 || c.segProgress < 0) {
+    if (c.segProgress > 1) {
+      c.segProgress -= 1;
+      c.segIndex += c.direction;
+    } else {
+      c.segProgress += 1;
+      c.segIndex += c.direction;
+    }
+    if (c.segIndex >= c.path.length - 1) {
+      c.segIndex = c.path.length - 2;
+      c.direction = -1;
+    } else if (c.segIndex <= 0) {
+      c.segIndex = 0;
+      c.direction = 1;
+    }
+  }
+
+  const a2 = c.path[c.segIndex];
+  const b2 = c.path[c.segIndex + 1] || a2;
+  c.lat = a2.lat + (b2.lat - a2.lat) * c.segProgress;
+  c.lng = a2.lng + (b2.lng - a2.lng) * c.segProgress;
 }
 
 // ══════════════════════════════════════════════════
@@ -206,8 +355,8 @@ function focusCart(id) {
   if (cartMarkers[idx]) cartMarkers[idx].openPopup();
 }
 
-// ── Track Modal with moving map ──
-let trackMap = null, trackMarker = null, trackInterval = null;
+// ── Track Modal with smooth moving map ──
+let trackMap = null, trackMarker = null, trackAnimHandle = null, trackInfoInterval = null;
 
 function openTrackModal(cartId) {
   const cart = CARTS.find((c) => c.id === cartId);
@@ -243,8 +392,8 @@ function openTrackModal(cartId) {
       attribution: "© OpenStreetMap",
     }).addTo(trackMap);
 
-    // Route polyline (static demo between start/end)
-    const routeCoords = buildRouteCoords(cart);
+    // Route polyline (the same path the cart is animating along)
+    const routeCoords = (cart.path || buildCartPath(cart)).map((pt) => [pt.lat, pt.lng]);
     if (routeCoords.length > 1) {
       L.polyline(routeCoords, { color: "#667eea", weight: 4, opacity: 0.7, dashArray: "6 4" }).addTo(trackMap);
     }
@@ -253,10 +402,7 @@ function openTrackModal(cartId) {
     trackMarker = L.marker([cart.lat, cart.lng], {
       icon: L.divIcon({
         className: "",
-        html: `<div style="background:white;border:3px solid ${col};border-radius:50%;width:50px;height:50px;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.3)">
-          <span style="font-size:22px">🚗</span>
-          <span style="font-size:9px;color:${col};font-weight:700">${cart.passengers}/${cart.capacity}</span>
-        </div>`,
+        html: trackCartIconHtml(cart, col),
         iconAnchor: [25, 25],
       }),
     }).addTo(trackMap);
@@ -266,24 +412,51 @@ function openTrackModal(cartId) {
     ).openPopup();
 
     // Location markers on track map
-    routeCoords.forEach((coord, i) => {
+    routeCoords.forEach((coord) => {
       L.circleMarker(coord, { radius: 6, color: "#28a745", fillColor: "#28a745", fillOpacity: 0.8 }).addTo(trackMap);
     });
 
-    // Live movement update
-    if (trackInterval) clearInterval(trackInterval);
-    trackInterval = setInterval(() => {
+    // Smooth per-frame follow: pushes the marker's position every
+    // animation frame (mirrors the main map's simStep) so the tracked
+    // cart glides continuously instead of stepping once a second.
+    let lastPan = 0;
+    function trackFrame() {
       const updated = CARTS.find((c) => c.id === cartId);
-      if (!updated || !trackMarker) return;
+      if (!updated || !trackMarker || !trackMap) return;
       trackMarker.setLatLng([updated.lat, updated.lng]);
-      trackMap.panTo([updated.lat, updated.lng], { animate: true, duration: 1.5 });
+      // Gently re-center the view every ~1.2s rather than every frame,
+      // so the camera follow itself feels like a smooth periodic pan
+      // instead of constantly fighting the user's own map drags.
+      const now = performance.now();
+      if (now - lastPan > 1200) {
+        trackMap.panTo([updated.lat, updated.lng], { animate: true, duration: 1.1, easeLinearity: 0.25 });
+        lastPan = now;
+      }
+      trackAnimHandle = requestAnimationFrame(trackFrame);
+    }
+    if (trackAnimHandle) cancelAnimationFrame(trackAnimHandle);
+    trackAnimHandle = requestAnimationFrame(trackFrame);
 
-      // Update info panel
-      document.querySelectorAll("#trackInfo div")[4].querySelector("span:last-child").textContent =
-        `lat: ${updated.lat.toFixed(5)}, lng: ${updated.lng.toFixed(5)}`;
-    }, 3000);
+    // Lower-frequency text info panel refresh
+    if (trackInfoInterval) clearInterval(trackInfoInterval);
+    trackInfoInterval = setInterval(() => {
+      const updated = CARTS.find((c) => c.id === cartId);
+      if (!updated) return;
+      const spanEl = document.querySelectorAll("#trackInfo div")[4];
+      if (spanEl) {
+        spanEl.querySelector("span:last-child").textContent =
+          `lat: ${updated.lat.toFixed(5)}, lng: ${updated.lng.toFixed(5)}`;
+      }
+    }, 1000);
 
   }, 200);
+}
+
+function trackCartIconHtml(cart, col) {
+  return `<div style="background:white;border:3px solid ${col};border-radius:50%;width:50px;height:50px;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.3)">
+    <span style="font-size:22px;display:inline-block">🚗</span>
+    <span style="font-size:9px;color:${col};font-weight:700">${cart.passengers}/${cart.capacity}</span>
+  </div>`;
 }
 
 function buildRouteCoords(cart) {
@@ -296,14 +469,15 @@ function buildRouteCoords(cart) {
     coords.unshift([23.8762, 90.2660]); // approximate prantic gate
     coords.push([LOCS["shahid-minar"].lat, LOCS["shahid-minar"].lng]);
   }
-  // Add cart's current position
+  // Add cart's current position as a fallback anchor
   coords.push([cart.lat, cart.lng]);
   return coords;
 }
 
 function closeTrackModal() {
   document.getElementById("trackModal").classList.remove("open");
-  if (trackInterval) { clearInterval(trackInterval); trackInterval = null; }
+  if (trackAnimHandle) { cancelAnimationFrame(trackAnimHandle); trackAnimHandle = null; }
+  if (trackInfoInterval) { clearInterval(trackInfoInterval); trackInfoInterval = null; }
   if (trackMap) { trackMap.remove(); trackMap = null; }
   trackMarker = null;
 }
@@ -316,6 +490,7 @@ function goTab(name, btn) {
   document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
   document.getElementById(name + "Tab").classList.add("active");
   if (btn) btn.classList.add("active");
+  if (name === "history") renderRideHistory();
 }
 
 // ══════════════════════════════════════════════════
@@ -365,6 +540,7 @@ function doLogin() {
   saveMe(user);
   updateUserUI();
   closeAuth();
+  renderRideHistory();
   toast("✓", `স্বাগতম, ${user.name}!`, "ok");
 }
 
@@ -494,6 +670,7 @@ function toggleDriverStatus() {
   const cart = CARTS.find((c) => c.id === currentDriver.cartId);
   if (cart) {
     cart.status = currentDriver.online ? "active" : "inactive";
+    if (cart.status === "active" && (!cart.path || cart.path.length < 2)) cart.path = buildCartPath(cart);
     renderMarkers();
     renderCartList();
     updateStats();
@@ -567,17 +744,28 @@ function doLogout() {
   currentUser = null;
   saveMe(null);
   updateUserUI();
+  renderRideHistory();
   toast("👋", "লগআউট সফল", "ok");
 }
 
 // ══════════════════════════════════════════════════
-//  LIVE QR SCANNER
+//  LIVE QR SCANNER  (optimised for speed)
 // ══════════════════════════════════════════════════
 let camStream = null, scanLoop = null, scannedUser = null;
+let qrWorkCanvas = document.createElement("canvas"); // smaller scratch canvas used purely for fast decoding
 
 function toggleCamera() {
   if (camStream) { stopCamera(); return; }
-  navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+  // Lower the requested camera resolution — jsQR's decode time scales with
+  // pixel count, so a smaller stream makes scanning noticeably faster while
+  // still being plenty sharp for a QR code held in front of the lens.
+  navigator.mediaDevices.getUserMedia({
+    video: {
+      facingMode: "environment",
+      width:  { ideal: 480 },
+      height: { ideal: 480 },
+    },
+  })
     .then((stream) => {
       camStream = stream;
       const v = document.getElementById("videoEl");
@@ -600,15 +788,23 @@ function stopCamera() {
 }
 
 function startLoop() {
-  const v = document.getElementById("videoEl"),
-        c = document.getElementById("qrCanvas"),
-        ctx = c.getContext("2d");
+  const v   = document.getElementById("videoEl");
+  // Cap the decode canvas to a small max dimension — far fewer pixels for
+  // jsQR to scan through per frame means a much faster, near-instant read
+  // the moment a code is held steady in front of the camera.
+  const MAX_DECODE_DIM = 360;
+  const ctx = qrWorkCanvas.getContext("2d", { willReadFrequently: true });
+
   function tick() {
-    if (v.readyState === v.HAVE_ENOUGH_DATA) {
-      c.height = v.videoHeight; c.width = v.videoWidth;
-      ctx.drawImage(v, 0, 0, c.width, c.height);
-      const img = ctx.getImageData(0, 0, c.width, c.height);
-      const code = jsQR(img.data, img.width, img.height, { inversionAttempts: "dontInvert" });
+    if (v.readyState === v.HAVE_ENOUGH_DATA && v.videoWidth) {
+      const scale = Math.min(1, MAX_DECODE_DIM / Math.max(v.videoWidth, v.videoHeight));
+      const w = Math.max(1, Math.round(v.videoWidth * scale));
+      const h = Math.max(1, Math.round(v.videoHeight * scale));
+      qrWorkCanvas.width = w;
+      qrWorkCanvas.height = h;
+      ctx.drawImage(v, 0, 0, w, h);
+      const img = ctx.getImageData(0, 0, w, h);
+      const code = jsQR(img.data, img.width, img.height, { inversionAttempts: "attemptBoth" });
       if (code) {
         try {
           const data = JSON.parse(code.data);
@@ -617,7 +813,7 @@ function startLoop() {
             if (user) { showScanResult(user); stopCamera(); return; }
             else toast("❌", "অজানা QR — নিবন্ধিত নয়", "err");
           }
-        } catch (e) { toast("⚠️", "QR পড়া যাচ্ছে না", "warn"); }
+        } catch (e) { /* not our QR format yet — keep scanning silently */ }
       }
     }
     scanLoop = requestAnimationFrame(tick);
@@ -639,34 +835,95 @@ function showScanResult(user) {
   document.getElementById("sId").textContent   = user.id;
   document.getElementById("sType").textContent = user.type === "student" ? "🎓 স্টুডেন্ট" : "👨‍💼 স্টাফ";
   document.getElementById("sBal").textContent  = user.balance;
+
+  // Reset pickup/drop selectors for the new scan
+  document.getElementById("boardFrom").value = "";
+  document.getElementById("boardTo").value   = "";
+  document.getElementById("boardFarePreview").style.display = "none";
+
   document.getElementById("scanResult").style.display = "block";
   toast("✓", `${user.name} যাচাই সম্পন্ন`, "ok");
 }
 
+// Live fare preview whenever pickup/drop selection changes
+function updateBoardFarePreview() {
+  const from = document.getElementById("boardFrom").value;
+  const to   = document.getElementById("boardTo").value;
+  const box  = document.getElementById("boardFarePreview");
+  if (!from || !to || from === to || !scannedUser) { box.style.display = "none"; return; }
+  const { fare } = fareFor(from, to, scannedUser.type === "staff" ? "staff" : scannedUser.type === "guest" ? "guest" : "student");
+  document.getElementById("boardFareAmt").textContent = fare;
+  box.style.display = "block";
+}
+
 function confirmBoard() {
   if (!scannedUser) return;
+  const fromKey = document.getElementById("boardFrom").value;
+  const toKey   = document.getElementById("boardTo").value;
+  if (!fromKey || !toKey) { toast("⚠️", "উঠার ও নামার স্থান নির্বাচন করুন", "warn"); return; }
+  if (fromKey === toKey)  { toast("⚠️", "উঠা ও নামার স্থান একই হতে পারবে না", "warn"); return; }
+
   const cart = CARTS.find((c) => c.status === "active" && c.passengers < c.capacity);
-  if (cart) {
-    cart.passengers++;
-    // Update driver stats if applicable
-    if (cart.driverId) {
-      const drivers = loadDrivers();
-      const di = drivers.findIndex((d) => d.id === cart.driverId);
-      if (di > -1) {
-        drivers[di].todayRides++;
-        drivers[di].todayEarning += 10;
-        saveDrivers(drivers);
-        if (currentDriver && currentDriver.id === cart.driverId) {
-          currentDriver = drivers[di];
-          saveDriverMe(currentDriver);
-          document.getElementById("dTodayRides").textContent   = currentDriver.todayRides;
-          document.getElementById("dTodayEarning").textContent = `৳${currentDriver.todayEarning}`;
-        }
+  if (!cart) { toast("❌", "এই মুহূর্তে কোনো খালি কার্ট নেই", "err"); return; }
+
+  const typeKey = scannedUser.type === "staff" ? "staff" : scannedUser.type === "guest" ? "guest" : "student";
+  const { fare } = fareFor(fromKey, toKey, typeKey);
+
+  if (scannedUser.balance < fare) {
+    toast("❌", `অপর্যাপ্ত ব্যালেন্স! প্রয়োজন ৳${fare}`, "err");
+    return;
+  }
+
+  // Deduct fare from the boarding passenger's wallet
+  scannedUser.balance -= fare;
+  const users = loadUsers();
+  const ui = users.findIndex((u) => u.id === scannedUser.id);
+  if (ui > -1) { users[ui].balance = scannedUser.balance; saveUsers(users); }
+  if (currentUser && currentUser.id === scannedUser.id) {
+    currentUser.balance = scannedUser.balance;
+    saveMe(currentUser);
+    document.getElementById("walBal").textContent = currentUser.balance;
+  }
+
+  // Bump cart occupancy
+  cart.passengers++;
+
+  // Update driver stats if applicable
+  if (cart.driverId) {
+    const drivers = loadDrivers();
+    const di = drivers.findIndex((d) => d.id === cart.driverId);
+    if (di > -1) {
+      drivers[di].todayRides++;
+      drivers[di].todayEarning += fare;
+      saveDrivers(drivers);
+      if (currentDriver && currentDriver.id === cart.driverId) {
+        currentDriver = drivers[di];
+        saveDriverMe(currentDriver);
+        document.getElementById("dTodayRides").textContent   = currentDriver.todayRides;
+        document.getElementById("dTodayEarning").textContent = `৳${currentDriver.todayEarning}`;
       }
     }
-    renderCartList(); updateStats(); renderMarkers();
   }
-  toast("🚗", `${scannedUser.name} সফলভাবে বোর্ড হয়েছেন!`, "ok");
+
+  // Record the ride in history for the boarding passenger
+  const now = new Date();
+  const rides = loadRides();
+  rides.unshift({
+    userId: scannedUser.id,
+    date: now.toLocaleDateString("bn-BD", { year: "numeric", month: "long", day: "numeric" }),
+    time: now.toLocaleTimeString("bn-BD", { hour: "numeric", minute: "2-digit", hour12: true }),
+    fromName: LOCS[fromKey].name,
+    toName: LOCS[toKey].name,
+    cartId: cart.id,
+    fare,
+    status: "completed",
+  });
+  saveRides(rides);
+
+  renderCartList(); updateStats(); renderMarkers();
+  renderRideHistory();
+
+  toast("🚗", `${scannedUser.name} সফলভাবে বোর্ড হয়েছেন! ভাড়া কাটা হয়েছে ৳${fare}`, "ok");
   cancelScan();
 }
 
@@ -674,10 +931,13 @@ function cancelScan() {
   scannedUser = null;
   document.getElementById("scanResult").style.display = "none";
   document.getElementById("manId").value = "";
+  document.getElementById("boardFrom").value = "";
+  document.getElementById("boardTo").value = "";
+  document.getElementById("boardFarePreview").style.display = "none";
 }
 
 // ══════════════════════════════════════════════════
-//  FARE
+//  FARE (calculator tab — independent from boarding flow)
 // ══════════════════════════════════════════════════
 function calculateFare() {
   const from = document.getElementById("fromLocation").value;
@@ -685,14 +945,45 @@ function calculateFare() {
   const type = document.getElementById("userType").value;
   if (!from || !to) { toast("⚠️", "শুরু ও গন্তব্য নির্বাচন করুন", "warn"); return; }
   if (from === to)  { toast("⚠️", "একই স্থান নির্বাচন করা যাবে না", "warn"); return; }
-  const rule = FARES[`${from}-${to}`] || FARES[`${to}-${from}`];
-  let dist = 1.0, fare = type === "student" ? 8 : type === "staff" ? 9 : 10;
-  if (rule) { dist = rule.distance; fare = rule[type]; }
+  const { distance, fare } = fareFor(from, to, type);
   const names = { student: "স্টুডেন্ট", staff: "স্টাফ", guest: "অতিথি" };
-  document.getElementById("fareDistance").textContent = dist + " km";
+  document.getElementById("fareDistance").textContent = distance + " km";
   document.getElementById("fareType").textContent     = names[type];
   document.getElementById("totalFare").textContent    = "৳" + fare;
   document.getElementById("fareResult").style.display = "block";
+}
+
+// ══════════════════════════════════════════════════
+//  RIDE HISTORY (dynamic — updates immediately after boarding)
+// ══════════════════════════════════════════════════
+function renderRideHistory() {
+  const con = document.getElementById("rideHistory");
+  if (!con) return;
+
+  if (!currentUser) {
+    con.innerHTML = `<div class="ride-empty">হিস্ট্রি দেখতে আগে লগইন করুন</div>`;
+    return;
+  }
+
+  const rides = loadRides().filter((r) => r.userId === currentUser.id);
+  if (rides.length === 0) {
+    con.innerHTML = `<div class="ride-empty">এখনো কোনো রাইড নেই। প্রথম রাইড করলে এখানে দেখা যাবে।</div>`;
+    return;
+  }
+
+  con.innerHTML = rides.map((r) => `
+    <div class="ride-card">
+      <div class="ride-header">
+        <span class="ride-date">${r.date}</span>
+        <span class="ride-status completed">সম্পন্ন</span>
+      </div>
+      <div class="ride-details">
+        <p><strong>রুট:</strong> ${r.fromName} → ${r.toName}</p>
+        <p><strong>কার্ট নং:</strong> ${r.cartId}</p>
+        <p><strong>সময়:</strong> ${r.time}</p>
+        <p><strong>ভাড়া:</strong> ৳${r.fare}</p>
+      </div>
+    </div>`).join("");
 }
 
 // ══════════════════════════════════════════════════
@@ -736,11 +1027,19 @@ window.onload = () => {
   renderCartList();
   updateStats();
   updateUserUI();
+  renderRideHistory();
+
+  // Pickup/Drop live fare preview while boarding
+  document.getElementById("boardFrom").addEventListener("change", updateBoardFarePreview);
+  document.getElementById("boardTo").addEventListener("change", updateBoardFarePreview);
 
   // If driver was logged in previously, restore online status
   if (currentDriver) {
     const cart = CARTS.find((c) => c.id === currentDriver.cartId);
-    if (cart && currentDriver.online) cart.status = "active";
+    if (cart && currentDriver.online) {
+      cart.status = "active";
+      if (!cart.path || cart.path.length < 2) cart.path = buildCartPath(cart);
+    }
     renderMarkers(); renderCartList(); updateStats();
   }
 
