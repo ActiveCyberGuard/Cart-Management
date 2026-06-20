@@ -138,7 +138,7 @@
           <div class="qr-box">
             <div class="scan-line"></div>
             <div class="qr-corners"><span></span><span></span><span></span><span></span></div>
-            <video id="videoEl" autoplay playsinline></video>
+            <video id="videoEl" autoplay playsinline muted></video>
             <canvas id="qrCanvas" style="display:none"></canvas>
             <div class="qr-placeholder" id="qrPlaceholder">
               <div class="qr-icon">⬛</div>
@@ -150,13 +150,45 @@
           <div class="scan-result" id="scanResult">
             <div class="success-icon">✓</div>
             <h3 style="color:#155724;margin-bottom:6px">যাচাই সফল!</h3>
-            <p style="color:#555;font-size:14px">যাত্রী বোর্ড করতে পারবেন</p>
+            <p style="color:#555;font-size:14px">যাত্রার তথ্য দিয়ে বোর্ড করুন</p>
             <div class="user-details">
               <p><strong>নাম:</strong> <span id="sName">—</span></p>
               <p><strong>আইডি:</strong> <span id="sId">—</span></p>
               <p><strong>ধরণ:</strong> <span id="sType">—</span></p>
               <p><strong>ওয়ালেট:</strong> ৳<span id="sBal">—</span></p>
             </div>
+
+            <!-- Pickup / Drop selection -->
+            <div class="board-route-box">
+              <div class="form-group">
+                <label>উঠার স্থান (Pickup)</label>
+                <select id="boardFrom" class="input-field">
+                  <option value="">নির্বাচন করুন</option>
+                  <option value="maingate">মেইন গেট</option>
+                  <option value="shahid-minar">শহিদ মিনার</option>
+                  <option value="srj">শহিদ রফিক-জব্বার হল</option>
+                  <option value="bottola">বটতলা</option>
+                  <option value="notun-kola">নতুন কলা ভবন</option>
+                  <option value="puraton-kola">পুরাতন কলা ভবন</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>নামার স্থান (Drop)</label>
+                <select id="boardTo" class="input-field">
+                  <option value="">নির্বাচন করুন</option>
+                  <option value="maingate">মেইন গেট</option>
+                  <option value="shahid-minar">শহিদ মিনার</option>
+                  <option value="srj">শহিদ রফিক-জব্বার হল</option>
+                  <option value="bottola">বটতলা</option>
+                  <option value="notun-kola">নতুন কলা ভবন</option>
+                  <option value="puraton-kola">পুরাতন কলা ভবন</option>
+                </select>
+              </div>
+              <div class="board-fare-preview" id="boardFarePreview" style="display:none">
+                আনুমানিক ভাড়া: ৳<span id="boardFareAmt">0</span>
+              </div>
+            </div>
+
             <div class="scan-btns">
               <button class="btn-primary" onclick="confirmBoard()">বোর্ড করুন</button>
               <button class="btn-secondary" onclick="cancelScan()">বাতিল</button>
@@ -187,42 +219,7 @@
             </div>
           </div>
           <div class="ride-history" id="rideHistory">
-            <div class="ride-card">
-              <div class="ride-header">
-                <span class="ride-date">২৭ জানুয়ারি, ২০২৬</span>
-                <span class="ride-status completed">সম্পন্ন</span>
-              </div>
-              <div class="ride-details">
-                <p><strong>রুট:</strong> মেইন গেট → রফিক-জব্বার হল</p>
-                <p><strong>কার্ট নং:</strong> UC-101</p>
-                <p><strong>সময়:</strong> 9:30 AM</p>
-                <p><strong>ভাড়া:</strong> ৳10</p>
-              </div>
-            </div>
-            <div class="ride-card">
-              <div class="ride-header">
-                <span class="ride-date">২৬ জানুয়ারি, ২০২৬</span>
-                <span class="ride-status completed">সম্পন্ন</span>
-              </div>
-              <div class="ride-details">
-                <p><strong>রুট:</strong> বটতলা → রফিক-জব্বার হল</p>
-                <p><strong>কার্ট নং:</strong> UC-102</p>
-                <p><strong>সময়:</strong> 1:15 PM</p>
-                <p><strong>ভাড়া:</strong> ৳5</p>
-              </div>
-            </div>
-            <div class="ride-card">
-              <div class="ride-header">
-                <span class="ride-date">২৫ জানুয়ারি, ২০২৬</span>
-                <span class="ride-status completed">সম্পন্ন</span>
-              </div>
-              <div class="ride-details">
-                <p><strong>রুট:</strong> শহিদ মিনার → মেইন গেট</p>
-                <p><strong>কার্ট নং:</strong> UC-103</p>
-                <p><strong>সময়:</strong> 4:45 PM</p>
-                <p><strong>ভাড়া:</strong> ৳5</p>
-              </div>
-            </div>
+            <!-- Dynamically rendered by JS -->
           </div>
         </div>
       </div>
