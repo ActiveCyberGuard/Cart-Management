@@ -118,6 +118,12 @@ body {
   transform: translateY(-2px);
   box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
 }
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
 .btn-secondary {
   background: white;
   color: #667eea;
@@ -336,6 +342,28 @@ body {
   border-radius: 8px;
 }
 .user-details p { margin: 7px 0; font-size: 15px; }
+
+/* Pickup/Drop selection box inside scan result */
+.board-route-box {
+  text-align: left;
+  background: white;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 14px 0;
+}
+.board-route-box .form-group { margin-bottom: 12px; }
+.board-route-box .form-group:last-of-type { margin-bottom: 0; }
+.board-fare-preview {
+  margin-top: 10px;
+  background: #f0f4ff;
+  color: #667eea;
+  font-weight: 700;
+  font-size: 15px;
+  text-align: center;
+  padding: 10px;
+  border-radius: 8px;
+}
+
 .scan-btns { display: flex; gap: 10px; justify-content: center; margin-top: 14px; }
 .scan-btns button { flex: 1; }
 .manual-entry {
@@ -430,6 +458,11 @@ tbody tr:last-child { border-bottom: none; }
   padding: 18px;
   margin-bottom: 14px;
   transition: all 0.3s;
+  animation: rideIn 0.4s ease;
+}
+@keyframes rideIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 .ride-card:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1); }
 .ride-header {
@@ -444,6 +477,12 @@ tbody tr:last-child { border-bottom: none; }
 .ride-status { padding: 4px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; }
 .ride-status.completed { background: #d4edda; color: #155724; }
 .ride-details p { margin: 7px 0; color: #333; }
+.ride-empty {
+  text-align: center;
+  color: #999;
+  padding: 30px 10px;
+  font-size: 14px;
+}
 
 /* ── MODAL ── */
 .modal {
@@ -727,6 +766,17 @@ tbody tr:last-child { border-bottom: none; }
   animation: blink 1s infinite;
 }
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+/* Realistic moving-cart marker styling.
+   Position updates now happen on every animation frame from JS itself
+   (see index.js simStep), so we deliberately do NOT add a CSS transition
+   on the marker's transform/position here — a long CSS transition would
+   fight against the per-frame JS updates and actually look laggy or
+   rubber-banded. The car icon inside stays upright at all times (no
+   rotation), per request — only its position glides smoothly. */
+.leaflet-marker-icon {
+  will-change: transform;
+}
 
 /* RESPONSIVE */
 @media (max-width: 768px) {
