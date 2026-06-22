@@ -35,6 +35,7 @@
       <button class="tab-btn active" onclick="goTab('map', this)">লাইভ ম্যাপ</button>
       <button class="tab-btn" onclick="goTab('fare', this)">ভাড়া হিসাব</button>
       <button class="tab-btn" onclick="goTab('scanner', this)">স্ক্যানার</button>
+      <button class="tab-btn" onclick="goTab('reserve', this)">রিজার্ভ কার্ট</button>
       <button class="tab-btn" onclick="goTab('history', this)">হিস্ট্রি</button>
     </nav>
 
@@ -184,6 +185,15 @@
                   <option value="puraton-kola">পুরাতন কলা ভবন</option>
                 </select>
               </div>
+              <div class="form-group">
+                <label>কতজনের সিট নিতে চান?</label>
+                <select id="boardSeatCount" class="input-field">
+                  <option value="1">১ সিট</option>
+                  <option value="2">২ সিট</option>
+                  <option value="3">৩ সিট</option>
+                  <option value="4">৪ সিট</option>
+                </select>
+              </div>
               <div class="board-fare-preview" id="boardFarePreview" style="display:none">
                 আনুমানিক ভাড়া: ৳<span id="boardFareAmt">0</span>
               </div>
@@ -201,6 +211,94 @@
               <input type="text" id="manId" class="input-field" placeholder="ইউনিভার্সিটি আইডি লিখুন (যেমন: 2021001)" />
               <button class="btn-secondary" onclick="verifyManual()">যাচাই করুন</button>
             </div>
+          </div>
+
+          <!-- DROP-OFF SECTION -->
+          <div class="dropoff-section">
+            <h3>কার্ট থেকে নেমে গেছেন?</h3>
+            <p class="dropoff-hint">আপনার যাত্রা শেষ হলে নেমে এই বাটনে ক্লিক করুন!</p>
+            <div id="dropoffListContainer"></div>
+          </div>
+
+          <!-- COUPON VERIFY (for reserved bookings) -->
+          <div class="coupon-verify-section">
+            <h3>রিজার্ভ কুপন যাচাই করুন</h3>
+            <div class="input-row">
+              <input type="text" id="couponInput" class="input-field" placeholder="কুপন কোড লিখুন (যেমন: RSV-XXXXXX)" />
+              <button class="btn-secondary" onclick="verifyCoupon()">যাচাই করুন</button>
+            </div>
+            <div id="couponResultBox" style="display:none"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RESERVE TAB -->
+      <div id="reserveTab" class="tab-content">
+        <div class="reserve-container">
+          <h2>কার্ট রিজার্ভ করুন</h2>
+          <p class="reserve-sub">আগের দিন স্পেসিফিক সময়ের জন্য কার্ট রিজার্ভ করুন এবং একটি কুপন কোড সংগ্রহ করুন।</p>
+
+          <div class="reserve-form">
+            <div class="form-group">
+              <label>আপনার আইডি</label>
+              <input type="text" id="resvUserId" class="input-field" placeholder="যেমন: 2021001" />
+            </div>
+            <div class="form-group">
+              <label>তারিখ</label>
+              <input type="date" id="resvDate" class="input-field" />
+            </div>
+            <div class="form-group">
+              <label>সময়</label>
+              <input type="time" id="resvTime" class="input-field" />
+            </div>
+            <div class="form-group">
+              <label>পিকআপ স্থান</label>
+              <select id="resvFrom" class="input-field">
+                <option value="">নির্বাচন করুন</option>
+                <option value="maingate">মেইন গেট</option>
+                <option value="shahid-minar">শহিদ মিনার</option>
+                <option value="srj">শহিদ রফিক-জব্বার হল</option>
+                <option value="bottola">বটতলা</option>
+                <option value="notun-kola">নতুন কলা ভবন</option>
+                <option value="puraton-kola">পুরাতন কলা ভবন</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>ড্রপ স্থান</label>
+              <select id="resvTo" class="input-field">
+                <option value="">নির্বাচন করুন</option>
+                <option value="maingate">মেইন গেট</option>
+                <option value="shahid-minar">শহিদ মিনার</option>
+                <option value="srj">শহিদ রফিক-জব্বার হল</option>
+                <option value="bottola">বটতলা</option>
+                <option value="notun-kola">নতুন কলা ভবন</option>
+                <option value="puraton-kola">পুরাতন কলা ভবন</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>কতজনের সিট লাগবে?</label>
+              <select id="resvSeatCount" class="input-field">
+                <option value="1">১ সিট</option>
+                <option value="2">২ সিট</option>
+                <option value="3">৩ সিট</option>
+                <option value="4">৪ সিট</option>
+              </select>
+            </div>
+            <button class="btn-primary btn-full" onclick="submitReservation()">রিজার্ভ করুন ও কুপন নিন →</button>
+          </div>
+
+          <div id="reserveResultBox" style="display:none">
+            <div class="coupon-box">
+              <p class="coupon-success-text">✅ রিজার্ভেশন সফল!</p>
+              <div class="coupon-code" id="resvCouponCode">RSV-000000</div>
+              <p class="coupon-instruction">যাত্রার দিন স্ক্যানার ট্যাবে গিয়ে এই কুপন কোডটি যাচাই করুন</p>
+              <div class="coupon-details" id="resvCouponDetails"></div>
+            </div>
+          </div>
+
+          <div class="reserve-list">
+            <h3>আপনার রিজার্ভেশন সমূহ</h3>
+            <div id="myReservationsContainer"></div>
           </div>
         </div>
       </div>
@@ -235,10 +333,10 @@
         <!-- Role Selector -->
         <div class="role-tabs" id="roleTabs">
           <button class="role-btn active" id="rolePassenger" onclick="switchRole('passenger')">
-            🎓 যাত্রী
+             যাত্রী
           </button>
           <button class="role-btn" id="roleDriver" onclick="switchRole('driver')">
-            🚗 ড্রাইভার
+            ড্রাইভার
           </button>
         </div>
 
@@ -283,6 +381,10 @@
               <input type="text" id="rDept" class="input-field" placeholder="যেমন: CSE, Math..." />
             </div>
             <div class="form-group">
+              <label>ব্যাচ নম্বর</label>
+              <input type="text" id="rBatch" class="input-field" placeholder="যেমন: 47, 48..." />
+            </div>
+            <div class="form-group">
               <label>পাসওয়ার্ড</label>
               <input type="password" id="rPass" class="input-field" placeholder="কমপক্ষে ৬ অক্ষর" />
             </div>
@@ -291,11 +393,11 @@
 
           <div id="qrResultBox" style="display:none">
             <div class="qr-result-box">
-              <p style="font-weight:700;font-size:16px;color:#28a745;margin-bottom:8px">✅ রেজিস্ট্রেশন সফল!</p>
+              <p style="font-weight:700;font-size:16px;color:#28a745;margin-bottom:8px">✅ রেজিস্ট্রেশন সফল</p>
               <div class="qr-name" id="qrUserName"></div>
               <div class="qr-uid" id="qrUserId"></div>
               <div id="qrGenDiv"></div>
-              <p style="font-size:13px;color:#888;margin-bottom:14px">এই QR কোড স্ক্যানারে ধরলে কার্টে উঠতে পারবেন</p>
+              <p style="font-size:13px;color:#888;margin-bottom:14px">এই QR কোড স্ক্যান করে  কার্টে উঠতে পারবেন</p>
               <button class="btn-primary btn-full" onclick="downloadQR()">QR ডাউনলোড করুন</button>
               <button class="btn-secondary btn-full" onclick="closeAuth()" style="margin-top:8px">বন্ধ করুন</button>
             </div>
@@ -387,6 +489,7 @@
       <div class="modal-content">
         <span class="close" onclick="closeTopup()">×</span>
         <h2>ওয়ালেট টপ-আপ</h2>
+        <h5>ওয়ালেটের অপশন টা পরিক্ষামূলক,খুব দ্রুতই পরবর্তী ভার্সনে বিকাশ/নগদ মোবাইল ব্যাংকিং এর সাথে সংযুক্ত করা হবে। ধন্যবাদ!</h5>
         <div class="form-group">
           <label>দ্রুত পরিমাণ নির্বাচন করুন</label>
           <div class="topup-grid">
