@@ -30,12 +30,19 @@ function loadRides() {
 }
 function saveRides(r) { localStorage.setItem("uc_rides", JSON.stringify(r)); }
 
+// Reservations — array of { coupon, userId, date, time, fromKey, toKey, fromName, toName, seatCount, status, createdAt }
+function loadReservations() {
+  try { return JSON.parse(localStorage.getItem("uc_reservations") || "[]"); }
+  catch (e) { return []; }
+}
+function saveReservations(r) { localStorage.setItem("uc_reservations", JSON.stringify(r)); }
+
 // Seed default passengers
 if (loadUsers().length === 0) {
   saveUsers([
-    { id: "2021001", name: "রহিম আহমেদ",   type: "student", dept: "CSE",   password: "1234", balance: 250 },
-    { id: "2021002", name: "করিম হোসেন",   type: "student", dept: "Math",  password: "1234", balance: 180 },
-    { id: "S001",    name: "ফারহানা বেগম", type: "staff",   dept: "Admin", password: "1234", balance: 500 },
+    { id: "2021001", name: "রহিম আহমেদ",   type: "student", dept: "CSE",   batch: "47", password: "1234", balance: 250 },
+    { id: "2021002", name: "করিম হোসেন",   type: "student", dept: "Math",  batch: "48", password: "1234", balance: 180 },
+    { id: "S001",    name: "ফারহানা বেগম", type: "staff",   dept: "Admin", batch: "-",  password: "1234", balance: 500 },
   ]);
 }
 // Seed default drivers
@@ -75,11 +82,11 @@ const LOCS = {
 const LIVE_LOCATION_ANCHOR = { lat: 23.8805, lng: 90.2745 };
 
 const CARTS = [
-  { id: "UC-101", driver: "আব্দুল করিম",   lat: 23.8776, lng: 90.2687, passengers: 3, capacity: 6, status: "active",   route: "মেইন গেট → শহিদ রফিক-জব্বার হল", driverId: "DRV001" },
-  { id: "UC-102", driver: "মোহাম্মদ আলী", lat: 23.8792, lng: 90.2712, passengers: 5, capacity: 8, status: "active",   route: "মেইন গেট → বিশমাইল",              driverId: "DRV002" },
-  { id: "UC-103", driver: "জামাল উদ্দিন",  lat: 23.8804, lng: 90.2735, passengers: 2, capacity: 6, status: "active",   route: "প্রান্তিক গেট → শহিদ মিনার",     driverId: "DRV003" },
-  { id: "UC-104", driver: "রফিক মিয়া",    lat: 23.8829, lng: 90.2776, passengers: 0, capacity: 8, status: "inactive", route: "বিরতি",                           driverId: null },
-  { id: "UC-105", driver: "হাসান আলী",     lat: 23.8841, lng: 90.2791, passengers: 0, capacity: 6, status: "inactive", route: "বিরতি",                           driverId: null },
+  { id: "UC-101", driver: "আব্দুল করিম",   lat: 23.8776, lng: 90.2687, passengers: 3, capacity: 6, status: "active",   route: "মেইন গেট → শহিদ রফিক-জব্বার হল", driverId: "DRV001", boarded: [] },
+  { id: "UC-102", driver: "মোহাম্মদ আলী", lat: 23.8792, lng: 90.2712, passengers: 5, capacity: 8, status: "active",   route: "মেইন গেট → বিশমাইল",              driverId: "DRV002", boarded: [] },
+  { id: "UC-103", driver: "জামাল উদ্দিন",  lat: 23.8804, lng: 90.2735, passengers: 2, capacity: 6, status: "active",   route: "প্রান্তিক গেট → শহিদ মিনার",     driverId: "DRV003", boarded: [] },
+  { id: "UC-104", driver: "রফিক মিয়া",    lat: 23.8829, lng: 90.2776, passengers: 0, capacity: 8, status: "inactive", route: "বিরতি",                           driverId: null, boarded: [] },
+  { id: "UC-105", driver: "হাসান আলী",     lat: 23.8841, lng: 90.2791, passengers: 0, capacity: 6, status: "inactive", route: "বিরতি",                           driverId: null, boarded: [] },
 ];
 
 const FARES = {
@@ -491,6 +498,8 @@ function goTab(name, btn) {
   document.getElementById(name + "Tab").classList.add("active");
   if (btn) btn.classList.add("active");
   if (name === "history") renderRideHistory();
+  if (name === "scanner") renderDropoffList();
+  if (name === "reserve") renderMyReservations();
 }
 
 // ══════════════════════════════════════════════════
@@ -549,12 +558,13 @@ function doRegister() {
   const id    = document.getElementById("rId").value.trim();
   const type  = document.getElementById("rType").value;
   const dept  = document.getElementById("rDept").value.trim();
+  const batch = document.getElementById("rBatch").value.trim();
   const pw    = document.getElementById("rPass").value;
-  if (!Sname || !id || !dept || !pw) { toast("⚠️", "সব ঘর পূরণ করুন", "warn"); return; }
+  if (!Sname || !id || !dept || !batch || !pw) { toast("⚠️", "সব ঘর পূরণ করুন", "warn"); return; }
   if (pw.length < 6) { toast("⚠️", "পাসওয়ার্ড কমপক্ষে ৬ অক্ষর হতে হবে", "warn"); return; }
   const users = loadUsers();
   if (users.find((u) => u.id === id)) { toast("❌", "এই আইডি ইতিমধ্যে নিবন্ধিত!", "err"); return; }
-  const u = { id, name: Sname, type, dept, password: pw, balance: 100 };
+  const u = { id, name: Sname, type, dept, batch, password: pw, balance: 100 };
   users.push(u);
   saveUsers(users);
   currentUser = u;
@@ -569,11 +579,11 @@ function showQR(user) {
   document.getElementById("regForm").style.display    = "none";
   document.getElementById("qrResultBox").style.display = "block";
   document.getElementById("qrUserName").textContent = user.name;
-  document.getElementById("qrUserId").textContent   = `আইডি: ${user.id} • ${user.type === "student" ? "স্টুডেন্ট" : "স্টাফ"} • ${user.dept}`;
+  document.getElementById("qrUserId").textContent   = `আইডি: ${user.id} • ${user.type === "student" ? "স্টুডেন্ট" : "স্টাফ"} • ${user.dept}${user.batch ? " • ব্যাচ " + user.batch : ""}`;
   const div = document.getElementById("qrGenDiv");
   div.innerHTML = "";
   new QRCode(div, {
-    text: JSON.stringify({ id: user.id, name: user.name, type: user.type }),
+    text: JSON.stringify({ id: user.id, name: user.name, type: user.type, batch: user.batch || "" }),
     width: 200, height: 200,
     colorDark: "#333", colorLight: "#fff",
     correctLevel: QRCode.CorrectLevel.H,
@@ -832,27 +842,29 @@ function verifyManual() {
 function showScanResult(user) {
   scannedUser = user;
   document.getElementById("sName").textContent = user.name;
-  document.getElementById("sId").textContent   = user.id;
+  document.getElementById("sId").textContent   = user.id + (user.batch ? ` (ব্যাচ ${user.batch})` : "");
   document.getElementById("sType").textContent = user.type === "student" ? "🎓 স্টুডেন্ট" : "👨‍💼 স্টাফ";
   document.getElementById("sBal").textContent  = user.balance;
 
-  // Reset pickup/drop selectors for the new scan
+  // Reset pickup/drop selectors and seat-count for the new scan
   document.getElementById("boardFrom").value = "";
   document.getElementById("boardTo").value   = "";
+  document.getElementById("boardSeatCount").value = "1";
   document.getElementById("boardFarePreview").style.display = "none";
 
   document.getElementById("scanResult").style.display = "block";
   toast("✓", `${user.name} যাচাই সম্পন্ন`, "ok");
 }
 
-// Live fare preview whenever pickup/drop selection changes
+// Live fare preview whenever pickup/drop selection or seat count changes
 function updateBoardFarePreview() {
   const from = document.getElementById("boardFrom").value;
   const to   = document.getElementById("boardTo").value;
+  const seatCount = parseInt(document.getElementById("boardSeatCount").value, 10) || 1;
   const box  = document.getElementById("boardFarePreview");
   if (!from || !to || from === to || !scannedUser) { box.style.display = "none"; return; }
   const { fare } = fareFor(from, to, scannedUser.type === "staff" ? "staff" : scannedUser.type === "guest" ? "guest" : "student");
-  document.getElementById("boardFareAmt").textContent = fare;
+  document.getElementById("boardFareAmt").textContent = fare * seatCount;
   box.style.display = "block";
 }
 
@@ -860,22 +872,25 @@ function confirmBoard() {
   if (!scannedUser) return;
   const fromKey = document.getElementById("boardFrom").value;
   const toKey   = document.getElementById("boardTo").value;
+  const seatCount = parseInt(document.getElementById("boardSeatCount").value, 10) || 1;
   if (!fromKey || !toKey) { toast("⚠️", "উঠার ও নামার স্থান নির্বাচন করুন", "warn"); return; }
   if (fromKey === toKey)  { toast("⚠️", "উঠা ও নামার স্থান একই হতে পারবে না", "warn"); return; }
 
-  const cart = CARTS.find((c) => c.status === "active" && c.passengers < c.capacity);
-  if (!cart) { toast("❌", "এই মুহূর্তে কোনো খালি কার্ট নেই", "err"); return; }
+  // Find an active cart with enough free seats for the requested seat count
+  const cart = CARTS.find((c) => c.status === "active" && (c.capacity - c.passengers) >= seatCount);
+  if (!cart) { toast("❌", `এই মুহূর্তে ${seatCount} সিট খালি আছে এমন কোনো কার্ট নেই`, "err"); return; }
 
   const typeKey = scannedUser.type === "staff" ? "staff" : scannedUser.type === "guest" ? "guest" : "student";
   const { fare } = fareFor(fromKey, toKey, typeKey);
+  const totalFare = fare * seatCount;
 
-  if (scannedUser.balance < fare) {
-    toast("❌", `অপর্যাপ্ত ব্যালেন্স! প্রয়োজন ৳${fare}`, "err");
+  if (scannedUser.balance < totalFare) {
+    toast("❌", `অপর্যাপ্ত ব্যালেন্স! প্রয়োজন ৳${totalFare}`, "err");
     return;
   }
 
-  // Deduct fare from the boarding passenger's wallet
-  scannedUser.balance -= fare;
+  // Deduct total fare from the boarding passenger's wallet
+  scannedUser.balance -= totalFare;
   const users = loadUsers();
   const ui = users.findIndex((u) => u.id === scannedUser.id);
   if (ui > -1) { users[ui].balance = scannedUser.balance; saveUsers(users); }
@@ -885,8 +900,21 @@ function confirmBoard() {
     document.getElementById("walBal").textContent = currentUser.balance;
   }
 
-  // Bump cart occupancy
-  cart.passengers++;
+  // Bump cart occupancy by the number of seats taken
+  cart.passengers += seatCount;
+
+  // Track this boarding so the passenger(s) can later be "dropped off"
+  // to free up their seats again.
+  if (!cart.boarded) cart.boarded = [];
+  cart.boarded.push({
+    boardId: "B" + Date.now() + Math.floor(Math.random() * 1000),
+    userId: scannedUser.id,
+    userName: scannedUser.name,
+    seatCount,
+    fromName: LOCS[fromKey].name,
+    toName: LOCS[toKey].name,
+    boardedAt: new Date().toLocaleTimeString("bn-BD", { hour: "numeric", minute: "2-digit", hour12: true }),
+  });
 
   // Update driver stats if applicable
   if (cart.driverId) {
@@ -894,7 +922,7 @@ function confirmBoard() {
     const di = drivers.findIndex((d) => d.id === cart.driverId);
     if (di > -1) {
       drivers[di].todayRides++;
-      drivers[di].todayEarning += fare;
+      drivers[di].todayEarning += totalFare;
       saveDrivers(drivers);
       if (currentDriver && currentDriver.id === cart.driverId) {
         currentDriver = drivers[di];
@@ -915,15 +943,16 @@ function confirmBoard() {
     fromName: LOCS[fromKey].name,
     toName: LOCS[toKey].name,
     cartId: cart.id,
-    fare,
+    seatCount,
+    fare: totalFare,
     status: "completed",
   });
   saveRides(rides);
 
   renderCartList(); updateStats(); renderMarkers();
-  renderRideHistory();
+  renderRideHistory(); renderDropoffList();
 
-  toast("🚗", `${scannedUser.name} সফলভাবে বোর্ড হয়েছেন! ভাড়া কাটা হয়েছে ৳${fare}`, "ok");
+  toast("", `${scannedUser.name} সফলভাবে বোর্ড হয়েছেন (${seatCount} সিট)! ভাড়া কাটা হয়েছে ৳${totalFare}`, "ok");
   cancelScan();
 }
 
@@ -933,7 +962,189 @@ function cancelScan() {
   document.getElementById("manId").value = "";
   document.getElementById("boardFrom").value = "";
   document.getElementById("boardTo").value = "";
+  document.getElementById("boardSeatCount").value = "1";
   document.getElementById("boardFarePreview").style.display = "none";
+}
+
+// ══════════════════════════════════════════════════
+//  DROP-OFF — lets a passenger (or anyone helping them)
+//  mark themselves as "got off the cart" so their seat(s)
+//  become available again for new boardings.
+// ══════════════════════════════════════════════════
+function renderDropoffList() {
+  const con = document.getElementById("dropoffListContainer");
+  if (!con) return;
+  con.innerHTML = "";
+
+  const activeWithPassengers = CARTS.filter((c) => c.status === "active" && c.boarded && c.boarded.length > 0);
+
+  if (activeWithPassengers.length === 0) {
+    con.innerHTML = `<div class="ride-empty"> </div>`;
+    return;
+  }
+
+  activeWithPassengers.forEach((cart) => {
+    cart.boarded.forEach((b) => {
+      const el = document.createElement("div");
+      el.className = "dropoff-item";
+      el.innerHTML = `
+        <div class="dropoff-info">
+          <div class="dropoff-name">${b.userName} <span class="dropoff-cart-tag">${cart.id}</span></div>
+          <div class="dropoff-route">${b.fromName} → ${b.toName} &nbsp;|&nbsp; সিট: ${b.seatCount} &nbsp;|&nbsp; উঠেছেন: ${b.boardedAt}</div>
+        </div>
+        <button class="btn-secondary" onclick="dropOffPassenger('${cart.id}', '${b.boardId}')">নেমে যাবেন? ✓</button>`;
+      con.appendChild(el);
+    });
+  });
+}
+
+function dropOffPassenger(cartId, boardId) {
+  const cart = CARTS.find((c) => c.id === cartId);
+  if (!cart || !cart.boarded) return;
+  const idx = cart.boarded.findIndex((b) => b.boardId === boardId);
+  if (idx === -1) return;
+
+  const entry = cart.boarded[idx];
+  // Free up the seats this passenger was occupying
+  cart.passengers = Math.max(0, cart.passengers - entry.seatCount);
+  cart.boarded.splice(idx, 1);
+
+  renderCartList(); updateStats(); renderMarkers(); renderDropoffList();
+  toast("", `${entry.userName} আপনাকে ধন্যবাদ  — ${entry.seatCount} সিট খালি হয়েছে`, "ok");
+}
+
+// ══════════════════════════════════════════════════
+//  RESERVE CART — book a cart in advance for a specific
+//  date/time/route and receive a unique coupon code that
+//  can later be verified in the Scanner tab.
+// ══════════════════════════════════════════════════
+function submitReservation() {
+  const userId = document.getElementById("resvUserId").value.trim();
+  const date   = document.getElementById("resvDate").value;
+  const time   = document.getElementById("resvTime").value;
+  const fromKey = document.getElementById("resvFrom").value;
+  const toKey   = document.getElementById("resvTo").value;
+  const seatCount = parseInt(document.getElementById("resvSeatCount").value, 10) || 1;
+
+  if (!userId || !date || !time || !fromKey || !toKey) {
+    toast("⚠️", "সব ঘর পূরণ করুন", "warn");
+    return;
+  }
+  if (fromKey === toKey) {
+    toast("⚠️", "পিকআপ ও ড্রপ স্থান একই হতে পারবে না", "warn");
+    return;
+  }
+  const user = loadUsers().find((u) => u.id === userId);
+  if (!user) {
+    toast("❌", "এই আইডি নিবন্ধিত নয় — আগে রেজিস্ট্রেশন করুন", "err");
+    return;
+  }
+
+  // Reservations should be made for a future date (the day before or later)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const resvDate = new Date(date + "T00:00:00");
+  if (resvDate < today) {
+    toast("⚠️", "অতীতের তারিখের জন্য রিজার্ভ করা যাবে না", "warn");
+    return;
+  }
+
+  const coupon = "RSV-" + Math.random().toString(36).substring(2, 8).toUpperCase();
+
+  const reservation = {
+    coupon,
+    userId: user.id,
+    userName: user.name,
+    date,
+    time,
+    fromKey, toKey,
+    fromName: LOCS[fromKey].name,
+    toName: LOCS[toKey].name,
+    seatCount,
+    status: "pending", // pending | used
+    createdAt: new Date().toISOString(),
+  };
+
+  const reservations = loadReservations();
+  reservations.unshift(reservation);
+  saveReservations(reservations);
+
+  // Show the coupon result box
+  document.getElementById("resvCouponCode").textContent = coupon;
+  document.getElementById("resvCouponDetails").innerHTML = `
+    <p><strong>যাত্রী:</strong> ${user.name} (${user.id})</p>
+    <p><strong>তারিখ ও সময়:</strong> ${date} — ${time}</p>
+    <p><strong>রুট:</strong> ${reservation.fromName} → ${reservation.toName}</p>
+    <p><strong>সিট সংখ্যা:</strong> ${seatCount}</p>`;
+  document.getElementById("reserveResultBox").style.display = "block";
+
+  renderMyReservations();
+  toast("✓", "রিজার্ভেশন সফল! কুপন কোড তৈরি হয়েছে", "ok");
+}
+
+function renderMyReservations() {
+  const con = document.getElementById("myReservationsContainer");
+  if (!con) return;
+  const userId = document.getElementById("resvUserId").value.trim();
+  const all = loadReservations();
+  const mine = userId ? all.filter((r) => r.userId === userId) : all;
+
+  if (mine.length === 0) {
+    con.innerHTML = `<div class="ride-empty">কোনো রিজার্ভেশন পাওয়া যায়নি।</div>`;
+    return;
+  }
+
+  con.innerHTML = mine.map((r) => `
+    <div class="reserve-card">
+      <div class="reserve-card-header">
+        <span class="coupon-tag">${r.coupon}</span>
+        <span class="ride-status ${r.status === "used" ? "completed" : "pending"}">${r.status === "used" ? "ব্যবহৃত" : "অপেক্ষমান"}</span>
+      </div>
+      <p><strong>তারিখ ও সময়:</strong> ${r.date} — ${r.time}</p>
+      <p><strong>রুট:</strong> ${r.fromName} → ${r.toName}</p>
+      <p><strong>সিট:</strong> ${r.seatCount}</p>
+    </div>`).join("");
+}
+
+// Verify a reservation coupon from the Scanner tab (manual entry style)
+function verifyCoupon() {
+  const code = document.getElementById("couponInput").value.trim().toUpperCase();
+  const box  = document.getElementById("couponResultBox");
+  if (!code) { toast("⚠️", "কুপন কোড লিখুন", "warn"); return; }
+
+  const reservations = loadReservations();
+  const idx = reservations.findIndex((r) => r.coupon === code);
+
+  if (idx === -1) {
+    box.style.display = "block";
+    box.innerHTML = `<div class="coupon-invalid">❌ এই কুপন কোডটি সঠিক নয়।</div>`;
+    toast("❌", "ভুল কুপন কোড", "err");
+    return;
+  }
+
+  const r = reservations[idx];
+  if (r.status === "used") {
+    box.style.display = "block";
+    box.innerHTML = `<div class="coupon-invalid">⚠️ এই কুপনটি ইতিমধ্যে ব্যবহার করা হয়েছে।</div>`;
+    toast("⚠️", "কুপন আগেই ব্যবহৃত হয়েছে", "warn");
+    return;
+  }
+
+  // Mark as used
+  reservations[idx].status = "used";
+  saveReservations(reservations);
+
+  box.style.display = "block";
+  box.innerHTML = `
+    <div class="coupon-valid">
+      <p style="font-weight:700;color:#155724;margin-bottom:6px">✅ কুপন যাচাই সফল!ধন্যবাদ</p>
+      <p><strong>যাত্রী:</strong> ${r.userName} (${r.userId})</p>
+      <p><strong>তারিখ ও সময়:</strong> ${r.date} — ${r.time}</p>
+      <p><strong>রুট:</strong> ${r.fromName} → ${r.toName}</p>
+      <p><strong>সিট সংখ্যা:</strong> ${r.seatCount}</p>
+    </div>`;
+  document.getElementById("couponInput").value = "";
+  toast("✓", `${r.userName}-এর রিজার্ভেশন যাচাই হয়েছে!`, "ok");
 }
 
 // ══════════════════════════════════════════════════
@@ -967,7 +1178,7 @@ function renderRideHistory() {
 
   const rides = loadRides().filter((r) => r.userId === currentUser.id);
   if (rides.length === 0) {
-    con.innerHTML = `<div class="ride-empty">এখনো কোনো রাইড নেই। প্রথম রাইড করলে এখানে দেখা যাবে।</div>`;
+    con.innerHTML = `<div class="ride-empty">এখনো কোনো রাইড নেই।</div>`;
     return;
   }
 
@@ -981,6 +1192,7 @@ function renderRideHistory() {
         <p><strong>রুট:</strong> ${r.fromName} → ${r.toName}</p>
         <p><strong>কার্ট নং:</strong> ${r.cartId}</p>
         <p><strong>সময়:</strong> ${r.time}</p>
+        ${r.seatCount ? `<p><strong>সিট সংখ্যা:</strong> ${r.seatCount}</p>` : ""}
         <p><strong>ভাড়া:</strong> ৳${r.fare}</p>
       </div>
     </div>`).join("");
@@ -1028,10 +1240,16 @@ window.onload = () => {
   updateStats();
   updateUserUI();
   renderRideHistory();
+  renderDropoffList();
 
-  // Pickup/Drop live fare preview while boarding
+  // Pickup/Drop live fare preview while boarding (also react to seat count changes)
   document.getElementById("boardFrom").addEventListener("change", updateBoardFarePreview);
   document.getElementById("boardTo").addEventListener("change", updateBoardFarePreview);
+  document.getElementById("boardSeatCount").addEventListener("change", updateBoardFarePreview);
+
+  // Refresh "my reservations" list whenever the user types/changes their ID
+  const resvUserIdEl = document.getElementById("resvUserId");
+  if (resvUserIdEl) resvUserIdEl.addEventListener("change", renderMyReservations);
 
   // If driver was logged in previously, restore online status
   if (currentDriver) {
