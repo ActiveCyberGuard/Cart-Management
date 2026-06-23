@@ -23,29 +23,44 @@ function loadDriverMe() {
 }
 function saveDriverMe(d) { localStorage.setItem("uc_driver_me", d ? JSON.stringify(d) : "null"); }
 
-// Rides (ride history) — array of { userId, date, time, from, to, fromName, toName, cartId, fare, status }
 function loadRides() {
   try { return JSON.parse(localStorage.getItem("uc_rides") || "[]"); }
   catch (e) { return []; }
 }
 function saveRides(r) { localStorage.setItem("uc_rides", JSON.stringify(r)); }
 
-// Reservations — array of { coupon, userId, date, time, fromKey, toKey, fromName, toName, seatCount, status, createdAt }
 function loadReservations() {
   try { return JSON.parse(localStorage.getItem("uc_reservations") || "[]"); }
   catch (e) { return []; }
 }
 function saveReservations(r) { localStorage.setItem("uc_reservations", JSON.stringify(r)); }
 
-// Seed default passengers
-if (loadUsers().length === 0) {
-  saveUsers([
-    { id: "2021001", name: "রহিম আহমেদ",   type: "student", dept: "CSE",   batch: "47", password: "1234", balance: 250 },
-    { id: "2021002", name: "করিম হোসেন",   type: "student", dept: "Math",  batch: "48", password: "1234", balance: 180 },
-    { id: "S001",    name: "ফারহানা বেগম", type: "staff",   dept: "Admin", batch: "-",  password: "1234", balance: 500 },
-  ]);
-}
-// Seed default drivers
+// ── Seed default users (demo + originals) ──
+(function seedUsers() {
+  const existing = loadUsers();
+  // ডেমো ইউজার: id=2021001, batch=51, dept=IIT, password=123456
+  const demoExists = existing.find(u => u.id === "2021001");
+  if (!demoExists) {
+    const users = [
+      { id: "2021001", name: "রহিম আহমেদ",   type: "student", dept: "IIT",   batch: "51", password: "123456", balance: 250 },
+      { id: "2021002", name: "করিম হোসেন",   type: "student", dept: "Math",  batch: "48", password: "1234",   balance: 180 },
+      { id: "S001",    name: "ফারহানা বেগম", type: "staff",   dept: "Admin", batch: "-",  password: "1234",   balance: 500 },
+    ];
+    saveUsers(users);
+  } else {
+    // ডেমো ইউজার থাকলে batch/dept/password আপডেট করো (পুরনো সিড ঠিক করা)
+    let users = loadUsers();
+    const idx = users.findIndex(u => u.id === "2021001");
+    if (idx > -1) {
+      users[idx].batch    = "51";
+      users[idx].dept     = "IIT";
+      users[idx].password = "123456";
+      saveUsers(users);
+    }
+  }
+})();
+
+// ── Seed default drivers ──
 if (loadDrivers().length === 0) {
   saveDrivers([
     { id: "DRV001", name: "আব্দুল করিম",   phone: "01711000001", cartId: "UC-101", password: "1234", todayRides: 5,  todayEarning: 50,  online: false },
@@ -53,7 +68,8 @@ if (loadDrivers().length === 0) {
     { id: "DRV003", name: "জামাল উদ্দিন",  phone: "01711000003", cartId: "UC-103", password: "1234", todayRides: 7,  todayEarning: 65,  online: false },
   ]);
 }
-// Seed a few demo rides only if nothing exists yet, attached to demo user 2021001
+
+// ── Seed demo rides ──
 if (loadRides().length === 0) {
   saveRides([
     { userId: "2021001", date: "২৭ জানুয়ারি, ২০২৬", time: "9:30 AM",  fromName: "মেইন গেট",   toName: "শহিদ রফিক-জব্বার হল", cartId: "UC-101", fare: 10, status: "completed" },
@@ -69,24 +85,22 @@ let currentDriver = loadDriverMe();
 //  JU CAMPUS DATA
 // ══════════════════════════════════════════════════
 const LOCS = {
-  maingate:      { name: "মেইন গেট",                lat: 23.8776, lng: 90.2687 },
-  "shahid-minar":{ name: "শহিদ মিনার",              lat: 23.8792, lng: 90.2712 },
-  bottola:       { name: "বটতলা",                   lat: 23.8804, lng: 90.2735 },
-  srj:           { name: "শহিদ রফিক-জব্বার হল",     lat: 23.8829, lng: 90.2776 },
-  "notun-kola":  { name: "নতুন কলা ভবন",             lat: 23.8816, lng: 90.2754 },
-  "puraton-kola":{ name: "পুরাতন কলা ভবন",           lat: 23.8841, lng: 90.2791 },
+  maingate:       { name: "মেইন গেট",              lat: 23.8776, lng: 90.2687 },
+  "shahid-minar": { name: "শহিদ মিনার",             lat: 23.8792, lng: 90.2712 },
+  bottola:        { name: "বটতলা",                  lat: 23.8804, lng: 90.2735 },
+  srj:            { name: "শহিদ রফিক-জব্বার হল",    lat: 23.8829, lng: 90.2776 },
+  "notun-kola":   { name: "নতুন কলা ভবন",            lat: 23.8816, lng: 90.2754 },
+  "puraton-kola": { name: "পুরাতন কলা ভবন",          lat: 23.8841, lng: 90.2791 },
 };
 
-// Live location from: https://maps.app.goo.gl/ZjN1SCz5HVaifm15A
-// Jahangirnagar University area — using real JU coordinate as live location anchor
 const LIVE_LOCATION_ANCHOR = { lat: 23.8805, lng: 90.2745 };
 
 const CARTS = [
   { id: "UC-101", driver: "আব্দুল করিম",   lat: 23.8776, lng: 90.2687, passengers: 3, capacity: 6, status: "active",   route: "মেইন গেট → শহিদ রফিক-জব্বার হল", driverId: "DRV001", boarded: [] },
   { id: "UC-102", driver: "মোহাম্মদ আলী", lat: 23.8792, lng: 90.2712, passengers: 5, capacity: 8, status: "active",   route: "মেইন গেট → বিশমাইল",              driverId: "DRV002", boarded: [] },
   { id: "UC-103", driver: "জামাল উদ্দিন",  lat: 23.8804, lng: 90.2735, passengers: 2, capacity: 6, status: "active",   route: "প্রান্তিক গেট → শহিদ মিনার",     driverId: "DRV003", boarded: [] },
-  { id: "UC-104", driver: "রফিক মিয়া",    lat: 23.8829, lng: 90.2776, passengers: 0, capacity: 8, status: "inactive", route: "বিরতি",                           driverId: null, boarded: [] },
-  { id: "UC-105", driver: "হাসান আলী",     lat: 23.8841, lng: 90.2791, passengers: 0, capacity: 6, status: "inactive", route: "বিরতি",                           driverId: null, boarded: [] },
+  { id: "UC-104", driver: "রফিক মিয়া",    lat: 23.8829, lng: 90.2776, passengers: 0, capacity: 8, status: "inactive", route: "বিরতি",                           driverId: null,     boarded: [] },
+  { id: "UC-105", driver: "হাসান আলী",     lat: 23.8841, lng: 90.2791, passengers: 0, capacity: 6, status: "inactive", route: "বিরতি",                           driverId: null,     boarded: [] },
 ];
 
 const FARES = {
@@ -101,34 +115,37 @@ const FARES = {
 function fareFor(fromKey, toKey, type) {
   const rule = FARES[`${fromKey}-${toKey}`] || FARES[`${toKey}-${fromKey}`];
   if (rule) return { distance: rule.distance, fare: rule[type] };
-  // fallback flat estimate when no exact rule exists
   const fallback = type === "student" ? 8 : type === "staff" ? 9 : 10;
   return { distance: 1.0, fare: fallback };
 }
 
 // ══════════════════════════════════════════════════
-//  MAP — REALISTIC SMOOTH MOVEMENT ENGINE
-//
-//  Each active cart travels back & forth along a fixed path built from
-//  real campus coordinates. Rather than "jumping" to a new spot every
-//  tick, every cart now has its own target speed (km/h-like value),
-//  gently accelerates / decelerates near turns and path-ends, and is
-//  re-rendered on every animation frame via requestAnimationFrame for
-//  buttery-smooth, realistic gliding motion (like a live GPS tracker).
+//  AUTH GUARD — শুধু লাইভ ম্যাপ ছাড়া বাকি সব লগইন দরকার
+// ══════════════════════════════════════════════════
+function guardedTab(name, btn) {
+  if (!currentUser && !currentDriver) {
+    // লগইন নেই — গার্ড মডাল দেখাও
+    document.getElementById("authGuardModal").classList.add("open");
+    return;
+  }
+  goTab(name, btn);
+}
+
+function closeGuard() {
+  document.getElementById("authGuardModal").classList.remove("open");
+}
+
+// ══════════════════════════════════════════════════
+//  MAP — SMOOTH MOVEMENT ENGINE
 // ══════════════════════════════════════════════════
 let leafMap, cartMarkers = [];
 let simAnimHandle = null;
 let lastSimTs = null;
 
-// Rough conversion: at JU's latitude, 1 degree ≈ 111.1 km.
 const DEG_PER_METER = 1 / 111100;
 
-// Give every cart a route path (array of {lat,lng}) to travel back & forth on,
-// plus motion state: current segment, progress fraction, direction, current
-// speed and a target/base speed so movement can ease in & out naturally.
 function buildCartPath(cart) {
   const pts = buildRouteCoords(cart).map((c) => ({ lat: c[0], lng: c[1] }));
-  // ensure at least 2 points so motion is possible
   if (pts.length < 2) {
     pts.push({ lat: cart.lat + 0.0008, lng: cart.lng + 0.0008 });
     pts.unshift({ lat: cart.lat, lng: cart.lng });
@@ -136,7 +153,6 @@ function buildCartPath(cart) {
   return pts;
 }
 
-// Haversine-ish flat-earth distance in meters (fine for short campus hops)
 function segDistanceMeters(a, b) {
   const dLat = (b.lat - a.lat) / DEG_PER_METER;
   const dLng = (b.lng - a.lng) / DEG_PER_METER * Math.cos((a.lat * Math.PI) / 180);
@@ -144,12 +160,12 @@ function segDistanceMeters(a, b) {
 }
 
 CARTS.forEach((c) => {
-  c.path = buildCartPath(c);
-  c.segIndex = 0;                       // which segment of the path we're travelling on
-  c.segProgress = Math.random();        // 0..1 progress along that segment
-  c.direction = 1;                      // 1 = forward along path, -1 = backward
-  c.baseSpeed = 1.6 + Math.random() * 0.8; // each cart has a slightly different "personality" speed (m/s, ~6-8 km/h golf-cart pace)
-  c.curSpeed = c.baseSpeed;             // current eased speed (accelerates/decelerates)
+  c.path        = buildCartPath(c);
+  c.segIndex    = 0;
+  c.segProgress = Math.random();
+  c.direction   = 1;
+  c.baseSpeed   = 1.6 + Math.random() * 0.8;
+  c.curSpeed    = c.baseSpeed;
 });
 
 function initMap() {
@@ -158,7 +174,6 @@ function initMap() {
     attribution: "© OpenStreetMap",
   }).addTo(leafMap);
 
-  // Location markers
   Object.values(LOCS).forEach((loc) => {
     L.marker([loc.lat, loc.lng], {
       icon: L.divIcon({
@@ -169,11 +184,10 @@ function initMap() {
     }).addTo(leafMap);
   });
 
-  // Live location pin (from provided Google Maps link)
   L.marker([LIVE_LOCATION_ANCHOR.lat, LIVE_LOCATION_ANCHOR.lng], {
     icon: L.divIcon({
       className: "",
-      html: `<div style="background:#e53935;color:white;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap;box-shadow:0 2px 8px rgba(229,57,53,.5);animation:none">
+      html: `<div style="background:#e53935;color:white;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap;box-shadow:0 2px 8px rgba(229,57,53,.5)">
         📍 লাইভ লোকেশন
       </div>`,
       iconAnchor: [50, 10],
@@ -182,15 +196,8 @@ function initMap() {
 
   renderMarkers();
 
-  // Drive the simulation with requestAnimationFrame instead of a fixed
-  // setInterval tick. This decouples movement from a clock-step and lets
-  // every cart move a *physically correct* tiny distance every single
-  // frame (~60fps), which is what makes it look like real, continuous
-  // GPS-tracked motion instead of a robot teleporting every second.
-  lastSimTs = null;
+  lastSimTs     = null;
   simAnimHandle = requestAnimationFrame(simStep);
-
-  // Slower-cadence UI refresh (list/stats don't need 60fps updates)
   setInterval(() => { renderCartList(); updateStats(); }, 1000);
 }
 
@@ -219,9 +226,6 @@ function renderMarkers() {
   });
 }
 
-// Cart marker HTML — icon stays upright (no rotation) while still moving
-// smoothly along the path; only position glides, the car emoji itself
-// always faces straight up.
 function cartIconHtml(cart, col) {
   return `<div style="background:white;border:3px solid ${col};border-radius:50%;width:44px;height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(0,0,0,.3);cursor:pointer">
     <span style="font-size:19px;display:inline-block">🚗</span>
@@ -229,75 +233,58 @@ function cartIconHtml(cart, col) {
   </div>`;
 }
 
-// ── Main simulation loop (runs every animation frame, ~60fps) ──
 function simStep(ts) {
   if (lastSimTs == null) lastSimTs = ts;
-  let dt = (ts - lastSimTs) / 1000; // seconds since last frame
+  let dt = (ts - lastSimTs) / 1000;
   lastSimTs = ts;
-  // Clamp dt so a tab coming back from background doesn't cause one giant jump
   dt = Math.min(dt, 0.1);
 
   const active = CARTS.filter((c) => c.status === "active");
-
   active.forEach((c) => {
     if (!c.path || c.path.length < 2) c.path = buildCartPath(c);
     moveCartRealistically(c, dt);
   });
-
-  // Push new positions straight into the existing Leaflet markers every
-  // single frame — this produces a continuous, fluid glide along the
-  // road. The car icon itself stays upright; only its position moves.
   active.forEach((cart, i) => {
     const marker = cartMarkers[i];
     if (!marker) return;
     marker.setLatLng([cart.lat, cart.lng]);
   });
-
   simAnimHandle = requestAnimationFrame(simStep);
 }
 
-// Moves a single cart a realistic distance along its path this frame,
-// with gentle acceleration/deceleration near path ends & turns so it
-// doesn't move at a robotic constant speed.
 function moveCartRealistically(c, dt) {
   const a = c.path[c.segIndex];
   const b = c.path[c.segIndex + 1] || a;
   const segLenM = Math.max(1, segDistanceMeters(a, b));
 
-  // Ease speed toward the cart's base speed (simple critically-damped
-  // approach) — gives a soft accelerate/decelerate feel rather than an
-  // instant constant velocity.
   const speedEase = 1 - Math.exp(-dt * 1.5);
   c.curSpeed += (c.baseSpeed - c.curSpeed) * speedEase;
 
-  // Slow down a little when close to either end of the current segment —
-  // mimics a golf cart easing into a stop/turn rather than snapping.
   const distFromStart = c.segProgress;
-  const distFromEnd = 1 - c.segProgress;
-  const slowZone = 0.12; // last/first 12% of a segment
+  const distFromEnd   = 1 - c.segProgress;
+  const slowZone      = 0.12;
   let speedFactor = 1;
-  if (distFromEnd < slowZone) speedFactor = Math.min(speedFactor, 0.35 + 0.65 * (distFromEnd / slowZone));
+  if (distFromEnd   < slowZone) speedFactor = Math.min(speedFactor, 0.35 + 0.65 * (distFromEnd   / slowZone));
   if (distFromStart < slowZone) speedFactor = Math.min(speedFactor, 0.45 + 0.55 * (distFromStart / slowZone));
 
   const metersThisFrame = c.curSpeed * speedFactor * dt;
-  const progressDelta = metersThisFrame / segLenM;
+  const progressDelta   = metersThisFrame / segLenM;
 
   c.segProgress += c.direction * progressDelta;
 
-  // Handle segment / path-end transitions, bouncing back and forth
   while (c.segProgress > 1 || c.segProgress < 0) {
     if (c.segProgress > 1) {
       c.segProgress -= 1;
-      c.segIndex += c.direction;
+      c.segIndex    += c.direction;
     } else {
       c.segProgress += 1;
-      c.segIndex += c.direction;
+      c.segIndex    += c.direction;
     }
     if (c.segIndex >= c.path.length - 1) {
-      c.segIndex = c.path.length - 2;
-      c.direction = -1;
+      c.segIndex   = c.path.length - 2;
+      c.direction  = -1;
     } else if (c.segIndex <= 0) {
-      c.segIndex = 0;
+      c.segIndex  = 0;
       c.direction = 1;
     }
   }
@@ -345,14 +332,13 @@ function renderCartList() {
         <div class="seat-bar"><div class="seat-fill ${fc}" style="width:${Math.round(p * 100)}%"></div></div>
       </div>
       <div class="cart-actions">
-        <button class="btn-secondary" onclick="openTrackModal('${cart.id}')"> ট্র্যাক করুন</button>
-        <button class="btn-primary"   onclick="focusCart('${cart.id}')"  style="font-size:13px;padding:8px 14px">🗺 ম্যাপে দেখুন</button>
+        <button class="btn-secondary" onclick="openTrackModal('${cart.id}')">ট্র্যাক করুন</button>
+        <button class="btn-primary"   onclick="focusCart('${cart.id}')" style="font-size:13px;padding:8px 14px">🗺 ম্যাপে দেখুন</button>
       </div>`;
     con.appendChild(el);
   });
 }
 
-// Focus on map tab
 function focusCart(id) {
   const cart = CARTS.find((c) => c.id === id);
   if (!cart) return;
@@ -362,7 +348,7 @@ function focusCart(id) {
   if (cartMarkers[idx]) cartMarkers[idx].openPopup();
 }
 
-// ── Track Modal with smooth moving map ──
+// ── Track Modal ──
 let trackMap = null, trackMarker = null, trackAnimHandle = null, trackInfoInterval = null;
 
 function openTrackModal(cartId) {
@@ -372,8 +358,7 @@ function openTrackModal(cartId) {
   document.getElementById("trackModalTitle").textContent = `🚗 ${cart.id} — লাইভ ট্র্যাকিং`;
   document.getElementById("trackModal").classList.add("open");
 
-  // Build info box
-  const p = cart.passengers / cart.capacity;
+  const p   = cart.passengers / cart.capacity;
   const col = p >= 1 ? "#dc3545" : p >= 0.7 ? "#ffc107" : "#28a745";
   document.getElementById("trackInfo").innerHTML = `
     <div style="grid-column:1/-1;margin-bottom:6px">
@@ -388,24 +373,18 @@ function openTrackModal(cartId) {
       <span>lat: ${cart.lat.toFixed(5)}, lng: ${cart.lng.toFixed(5)}</span>
     </div>`;
 
-  // Init track map after modal opens (needs DOM to be visible)
   setTimeout(() => {
-    if (trackMap) {
-      trackMap.remove();
-      trackMap = null;
-    }
+    if (trackMap) { trackMap.remove(); trackMap = null; }
     trackMap = L.map("trackMap").setView([cart.lat, cart.lng], 17);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "© OpenStreetMap",
     }).addTo(trackMap);
 
-    // Route polyline (the same path the cart is animating along)
     const routeCoords = (cart.path || buildCartPath(cart)).map((pt) => [pt.lat, pt.lng]);
     if (routeCoords.length > 1) {
       L.polyline(routeCoords, { color: "#667eea", weight: 4, opacity: 0.7, dashArray: "6 4" }).addTo(trackMap);
     }
 
-    // Moving cart marker
     trackMarker = L.marker([cart.lat, cart.lng], {
       icon: L.divIcon({
         className: "",
@@ -413,27 +392,17 @@ function openTrackModal(cartId) {
         iconAnchor: [25, 25],
       }),
     }).addTo(trackMap);
+    trackMarker.bindPopup(`<b>${cart.id}</b><br>${cart.driver}<br><small>${cart.route}</small>`).openPopup();
 
-    trackMarker.bindPopup(
-      `<b>${cart.id}</b><br>${cart.driver}<br><small>${cart.route}</small>`
-    ).openPopup();
-
-    // Location markers on track map
     routeCoords.forEach((coord) => {
       L.circleMarker(coord, { radius: 6, color: "#28a745", fillColor: "#28a745", fillOpacity: 0.8 }).addTo(trackMap);
     });
 
-    // Smooth per-frame follow: pushes the marker's position every
-    // animation frame (mirrors the main map's simStep) so the tracked
-    // cart glides continuously instead of stepping once a second.
     let lastPan = 0;
     function trackFrame() {
       const updated = CARTS.find((c) => c.id === cartId);
       if (!updated || !trackMarker || !trackMap) return;
       trackMarker.setLatLng([updated.lat, updated.lng]);
-      // Gently re-center the view every ~1.2s rather than every frame,
-      // so the camera follow itself feels like a smooth periodic pan
-      // instead of constantly fighting the user's own map drags.
       const now = performance.now();
       if (now - lastPan > 1200) {
         trackMap.panTo([updated.lat, updated.lng], { animate: true, duration: 1.1, easeLinearity: 0.25 });
@@ -444,7 +413,6 @@ function openTrackModal(cartId) {
     if (trackAnimHandle) cancelAnimationFrame(trackAnimHandle);
     trackAnimHandle = requestAnimationFrame(trackFrame);
 
-    // Lower-frequency text info panel refresh
     if (trackInfoInterval) clearInterval(trackInfoInterval);
     trackInfoInterval = setInterval(() => {
       const updated = CARTS.find((c) => c.id === cartId);
@@ -455,7 +423,6 @@ function openTrackModal(cartId) {
           `lat: ${updated.lat.toFixed(5)}, lng: ${updated.lng.toFixed(5)}`;
       }
     }, 1000);
-
   }, 200);
 }
 
@@ -467,25 +434,24 @@ function trackCartIconHtml(cart, col) {
 }
 
 function buildRouteCoords(cart) {
-  // Simple demo: draw a route between known stops based on cart route text
   const coords = [];
-  if (cart.route.includes("মেইন গেট")) coords.push([LOCS.maingate.lat, LOCS.maingate.lng]);
-  if (cart.route.includes("শহিদ মিনার")) coords.push([LOCS["shahid-minar"].lat, LOCS["shahid-minar"].lng]);
-  if (cart.route.includes("রফিক-জব্বার") || cart.route.includes("বিশমাইল")) coords.push([LOCS.srj.lat, LOCS.srj.lng]);
+  if (cart.route.includes("মেইন গেট"))    coords.push([LOCS.maingate.lat,        LOCS.maingate.lng]);
+  if (cart.route.includes("শহিদ মিনার"))  coords.push([LOCS["shahid-minar"].lat, LOCS["shahid-minar"].lng]);
+  if (cart.route.includes("রফিক-জব্বার") || cart.route.includes("বিশমাইল"))
+                                           coords.push([LOCS.srj.lat,             LOCS.srj.lng]);
   if (cart.route.includes("প্রান্তিক")) {
-    coords.unshift([23.8762, 90.2660]); // approximate prantic gate
+    coords.unshift([23.8762, 90.2660]);
     coords.push([LOCS["shahid-minar"].lat, LOCS["shahid-minar"].lng]);
   }
-  // Add cart's current position as a fallback anchor
   coords.push([cart.lat, cart.lng]);
   return coords;
 }
 
 function closeTrackModal() {
   document.getElementById("trackModal").classList.remove("open");
-  if (trackAnimHandle) { cancelAnimationFrame(trackAnimHandle); trackAnimHandle = null; }
-  if (trackInfoInterval) { clearInterval(trackInfoInterval); trackInfoInterval = null; }
-  if (trackMap) { trackMap.remove(); trackMap = null; }
+  if (trackAnimHandle)    { cancelAnimationFrame(trackAnimHandle); trackAnimHandle = null; }
+  if (trackInfoInterval)  { clearInterval(trackInfoInterval);      trackInfoInterval = null; }
+  if (trackMap)           { trackMap.remove(); trackMap = null; }
   trackMarker = null;
 }
 
@@ -499,13 +465,27 @@ function goTab(name, btn) {
   if (btn) btn.classList.add("active");
   if (name === "history") renderRideHistory();
   if (name === "scanner") renderDropoffList();
-  if (name === "reserve") renderMyReservations();
+  if (name === "reserve") {
+    fillReserveFields();   // লগইন তথ্য থেকে অটো পূরণ
+    renderMyReservations();
+  }
+}
+
+// ══════════════════════════════════════════════════
+//  RESERVE — অটো ফিল্ড পূরণ (আইডি + ব্যাচ)
+// ══════════════════════════════════════════════════
+function fillReserveFields() {
+  if (!currentUser) return;
+  const idEl    = document.getElementById("resvUserId");
+  const batchEl = document.getElementById("resvBatch");
+  if (idEl)    idEl.value    = currentUser.id    || "";
+  if (batchEl) batchEl.value = currentUser.batch || "";
 }
 
 // ══════════════════════════════════════════════════
 //  AUTH — Role switcher
 // ══════════════════════════════════════════════════
-let currentRole = "passenger"; // "passenger" | "driver"
+let currentRole = "passenger";
 
 function openAuth() {
   document.getElementById("authModal").classList.add("open");
@@ -520,36 +500,47 @@ function closeAuth() {
 function switchRole(role) {
   currentRole = role;
   document.getElementById("rolePassenger").classList.toggle("active", role === "passenger");
-  document.getElementById("roleDriver").classList.toggle("active", role === "driver");
+  document.getElementById("roleDriver").classList.toggle("active",    role === "driver");
   document.getElementById("passengerSection").style.display = role === "passenger" ? "block" : "none";
   document.getElementById("driverSection").style.display   = role === "driver"    ? "block" : "none";
-
-  // If driver is already logged in, show dashboard immediately
-  if (role === "driver" && currentDriver) {
-    showDriverDashboard(currentDriver);
-  }
+  if (role === "driver" && currentDriver) showDriverDashboard(currentDriver);
 }
 
-// ── PASSENGER LOGIN / REGISTER ──
+// ── PASSENGER LOGIN ──
+// লগইনে এখন আইডি + ব্যাচ + পাসওয়ার্ড তিনটাই মিলাতে হবে
 function switchMTab(t) {
   document.getElementById("mtLogin").classList.toggle("active", t === "login");
-  document.getElementById("mtReg").classList.toggle("active", t === "register");
-  document.getElementById("loginForm").style.display  = t === "login"    ? "block" : "none";
-  document.getElementById("regForm").style.display    = t === "register" ? "block" : "none";
+  document.getElementById("mtReg").classList.toggle("active",   t === "register");
+  document.getElementById("loginForm").style.display   = t === "login"    ? "block" : "none";
+  document.getElementById("regForm").style.display     = t === "register" ? "block" : "none";
   document.getElementById("qrResultBox").style.display = "none";
 }
 
 function doLogin() {
-  const id = document.getElementById("lId").value.trim();
-  const pw = document.getElementById("lPass").value;
-  if (!id || !pw) { toast("⚠️", "আইডি ও পাসওয়ার্ড লিখুন", "warn"); return; }
-  const user = loadUsers().find((u) => u.id === id && u.password === pw);
-  if (!user) { toast("❌", "ভুল আইডি বা পাসওয়ার্ড!", "err"); return; }
+  const id    = document.getElementById("lId").value.trim();
+  const batch = document.getElementById("lBatch").value.trim();
+  const pw    = document.getElementById("lPass").value;
+
+  if (!id || !batch || !pw) {
+    toast("⚠️", "আইডি, ব্যাচ ও পাসওয়ার্ড তিনটাই লিখুন", "warn");
+    return;
+  }
+
+  const user = loadUsers().find(
+    (u) => u.id === id && String(u.batch) === String(batch) && u.password === pw
+  );
+
+  if (!user) {
+    toast("❌", "ভুল আইডি, ব্যাচ বা পাসওয়ার্ড!", "err");
+    return;
+  }
+
   currentUser = user;
   saveMe(user);
   updateUserUI();
   closeAuth();
   renderRideHistory();
+  fillReserveFields();
   toast("✓", `স্বাগতম, ${user.name}!`, "ok");
 }
 
@@ -560,26 +551,39 @@ function doRegister() {
   const dept  = document.getElementById("rDept").value.trim();
   const batch = document.getElementById("rBatch").value.trim();
   const pw    = document.getElementById("rPass").value;
-  if (!Sname || !id || !dept || !batch || !pw) { toast("⚠️", "সব ঘর পূরণ করুন", "warn"); return; }
-  if (pw.length < 6) { toast("⚠️", "পাসওয়ার্ড কমপক্ষে ৬ অক্ষর হতে হবে", "warn"); return; }
+
+  if (!Sname || !id || !dept || !batch || !pw) {
+    toast("⚠️", "সব ঘর পূরণ করুন", "warn");
+    return;
+  }
+  if (pw.length < 6) {
+    toast("⚠️", "পাসওয়ার্ড কমপক্ষে ৬ অক্ষর হতে হবে", "warn");
+    return;
+  }
   const users = loadUsers();
-  if (users.find((u) => u.id === id)) { toast("❌", "এই আইডি ইতিমধ্যে নিবন্ধিত!", "err"); return; }
+  if (users.find((u) => u.id === id)) {
+    toast("❌", "এই আইডি ইতিমধ্যে নিবন্ধিত!", "err");
+    return;
+  }
+
   const u = { id, name: Sname, type, dept, batch, password: pw, balance: 100 };
   users.push(u);
   saveUsers(users);
   currentUser = u;
   saveMe(u);
   updateUserUI();
+  fillReserveFields();
   showQR(u);
   toast("✓", "রেজিস্ট্রেশন সফল! QR কোড তৈরি হয়েছে", "ok");
 }
 
 function showQR(user) {
-  document.getElementById("loginForm").style.display  = "none";
-  document.getElementById("regForm").style.display    = "none";
+  document.getElementById("loginForm").style.display   = "none";
+  document.getElementById("regForm").style.display     = "none";
   document.getElementById("qrResultBox").style.display = "block";
-  document.getElementById("qrUserName").textContent = user.name;
-  document.getElementById("qrUserId").textContent   = `আইডি: ${user.id} • ${user.type === "student" ? "স্টুডেন্ট" : "স্টাফ"} • ${user.dept}${user.batch ? " • ব্যাচ " + user.batch : ""}`;
+  document.getElementById("qrUserName").textContent    = user.name;
+  document.getElementById("qrUserId").textContent      =
+    `আইডি: ${user.id} • ${user.type === "student" ? "স্টুডেন্ট" : "স্টাফ"} • ${user.dept}${user.batch ? " • ব্যাচ " + user.batch : ""}`;
   const div = document.getElementById("qrGenDiv");
   div.innerHTML = "";
   new QRCode(div, {
@@ -594,9 +598,9 @@ function downloadQR() {
   setTimeout(() => {
     const canvas = document.querySelector("#qrGenDiv canvas");
     if (!canvas) { toast("❌", "QR পাওয়া যায়নি", "err"); return; }
-    const a = document.createElement("a");
+    const a    = document.createElement("a");
     a.download = `unicart_${currentUser.id}.png`;
-    a.href = canvas.toDataURL();
+    a.href     = canvas.toDataURL();
     a.click();
     toast("✓", "QR ডাউনলোড হচ্ছে...", "ok");
   }, 100);
@@ -613,7 +617,7 @@ function resetPassengerForms() {
 // ── DRIVER LOGIN / REGISTER ──
 function switchDriverTab(t) {
   document.getElementById("dtLogin").classList.toggle("active", t === "login");
-  document.getElementById("dtReg").classList.toggle("active", t === "register");
+  document.getElementById("dtReg").classList.toggle("active",   t === "register");
   document.getElementById("driverLoginForm").style.display = t === "login"    ? "block" : "none";
   document.getElementById("driverRegForm").style.display   = t === "register" ? "block" : "none";
   document.getElementById("driverDashboard").style.display = "none";
@@ -624,7 +628,7 @@ function doDriverLogin() {
   const pw = document.getElementById("dlPass").value;
   if (!id || !pw) { toast("⚠️", "আইডি ও পাসওয়ার্ড লিখুন", "warn"); return; }
   const driver = loadDrivers().find((d) => d.id === id && d.password === pw);
-  if (!driver) { toast("❌", "ভুল ড্রাইভার আইডি বা পাসওয়ার্ড!", "err"); return; }
+  if (!driver)  { toast("❌", "ভুল ড্রাইভার আইডি বা পাসওয়ার্ড!", "err"); return; }
   currentDriver = driver;
   saveDriverMe(driver);
   showDriverDashboard(driver);
@@ -633,11 +637,11 @@ function doDriverLogin() {
 }
 
 function doDriverRegister() {
-  const name  = document.getElementById("drName").value.trim();
-  const id    = document.getElementById("drId").value.trim();
-  const phone = document.getElementById("drPhone").value.trim();
-  const cartId= document.getElementById("drCart").value;
-  const pw    = document.getElementById("drPass").value;
+  const name   = document.getElementById("drName").value.trim();
+  const id     = document.getElementById("drId").value.trim();
+  const phone  = document.getElementById("drPhone").value.trim();
+  const cartId = document.getElementById("drCart").value;
+  const pw     = document.getElementById("drPass").value;
   if (!name || !id || !phone || !pw) { toast("⚠️", "সব ঘর পূরণ করুন", "warn"); return; }
   if (pw.length < 6) { toast("⚠️", "পাসওয়ার্ড কমপক্ষে ৬ অক্ষর হতে হবে", "warn"); return; }
   const drivers = loadDrivers();
@@ -647,7 +651,6 @@ function doDriverRegister() {
   saveDrivers(drivers);
   currentDriver = d;
   saveDriverMe(d);
-  // Assign driver to cart
   const cart = CARTS.find((c) => c.id === cartId);
   if (cart) { cart.driver = name; cart.driverId = id; }
   showDriverDashboard(d);
@@ -666,8 +669,8 @@ function showDriverDashboard(driver) {
 
   const toggle = document.getElementById("driverStatusToggle");
   toggle.checked = driver.online || false;
-  document.getElementById("driverStatusLabel").textContent  = driver.online ? "অনলাইন" : "অফলাইন";
-  document.getElementById("driverStatusLabel").style.color  = driver.online ? "#28a745" : "#dc3545";
+  document.getElementById("driverStatusLabel").textContent = driver.online ? "অনলাইন" : "অফলাইন";
+  document.getElementById("driverStatusLabel").style.color = driver.online ? "#28a745" : "#dc3545";
 }
 
 function toggleDriverStatus() {
@@ -676,19 +679,15 @@ function toggleDriverStatus() {
   document.getElementById("driverStatusLabel").textContent = currentDriver.online ? "অনলাইন" : "অফলাইন";
   document.getElementById("driverStatusLabel").style.color = currentDriver.online ? "#28a745" : "#dc3545";
 
-  // Update cart status
   const cart = CARTS.find((c) => c.id === currentDriver.cartId);
   if (cart) {
     cart.status = currentDriver.online ? "active" : "inactive";
     if (cart.status === "active" && (!cart.path || cart.path.length < 2)) cart.path = buildCartPath(cart);
-    renderMarkers();
-    renderCartList();
-    updateStats();
+    renderMarkers(); renderCartList(); updateStats();
   }
 
-  // Persist
   const drivers = loadDrivers();
-  const idx = drivers.findIndex((d) => d.id === currentDriver.id);
+  const idx     = drivers.findIndex((d) => d.id === currentDriver.id);
   if (idx > -1) { drivers[idx].online = currentDriver.online; saveDrivers(drivers); }
   saveDriverMe(currentDriver);
 
@@ -698,9 +697,8 @@ function toggleDriverStatus() {
 
 function doDriverLogout() {
   if (!currentDriver) return;
-  // Set cart inactive on logout
   const cart = CARTS.find((c) => c.id === currentDriver.cartId);
-  if (cart) { cart.status = "inactive"; }
+  if (cart) cart.status = "inactive";
   currentDriver = null;
   saveDriverMe(null);
   renderMarkers(); renderCartList(); updateStats();
@@ -722,7 +720,6 @@ function updateUserUI() {
   const btn = document.getElementById("authBtn");
 
   if (currentUser) {
-    // Passenger logged in
     document.getElementById("userName").textContent = "👤 " + currentUser.name;
     document.getElementById("userName").className   = "loggedin";
     document.getElementById("walBal").textContent   = currentUser.balance;
@@ -730,18 +727,12 @@ function updateUserUI() {
     btn.onclick     = doLogout;
     btn.className   = "btn-danger";
   } else if (currentDriver) {
-    // Driver logged in
     document.getElementById("userName").textContent = "🚗 " + currentDriver.name;
     document.getElementById("userName").className   = "loggedin";
     btn.textContent = "ড্রাইভার লগআউট";
-    btn.onclick     = () => {
-      openAuth();
-      switchRole("driver");
-      showDriverDashboard(currentDriver);
-    };
-    btn.className = "btn-secondary";
+    btn.onclick     = () => { openAuth(); switchRole("driver"); showDriverDashboard(currentDriver); };
+    btn.className   = "btn-secondary";
   } else {
-    // Not logged in
     document.getElementById("userName").textContent = "রেজিস্ট্রার/ লগইন করুন";
     document.getElementById("userName").className   = "";
     btn.textContent = "লগইন";
@@ -755,34 +746,32 @@ function doLogout() {
   saveMe(null);
   updateUserUI();
   renderRideHistory();
+  // রিজার্ভ ফিল্ড ক্লিয়ার করো
+  const idEl    = document.getElementById("resvUserId");
+  const batchEl = document.getElementById("resvBatch");
+  if (idEl)    idEl.value    = "";
+  if (batchEl) batchEl.value = "";
   toast("👋", "লগআউট সফল", "ok");
 }
 
 // ══════════════════════════════════════════════════
-//  LIVE QR SCANNER  (optimised for speed)
+//  LIVE QR SCANNER
 // ══════════════════════════════════════════════════
 let camStream = null, scanLoop = null, scannedUser = null;
-let qrWorkCanvas = document.createElement("canvas"); // smaller scratch canvas used purely for fast decoding
+let qrWorkCanvas = document.createElement("canvas");
 
 function toggleCamera() {
   if (camStream) { stopCamera(); return; }
-  // Lower the requested camera resolution — jsQR's decode time scales with
-  // pixel count, so a smaller stream makes scanning noticeably faster while
-  // still being plenty sharp for a QR code held in front of the lens.
   navigator.mediaDevices.getUserMedia({
-    video: {
-      facingMode: "environment",
-      width:  { ideal: 480 },
-      height: { ideal: 480 },
-    },
+    video: { facingMode: "environment", width: { ideal: 480 }, height: { ideal: 480 } },
   })
     .then((stream) => {
       camStream = stream;
-      const v = document.getElementById("videoEl");
+      const v   = document.getElementById("videoEl");
       v.srcObject = stream;
       v.classList.add("on");
       document.getElementById("qrPlaceholder").style.display = "none";
-      document.getElementById("camBtn").textContent = "ক্যামেরা বন্ধ করুন";
+      document.getElementById("camBtn").textContent          = "ক্যামেরা বন্ধ করুন";
       startLoop();
     })
     .catch(() => toast("❌", "ক্যামেরা অ্যাক্সেস দিন অথবা ম্যানুয়াল আইডি ব্যবহার করুন", "err"));
@@ -790,30 +779,27 @@ function toggleCamera() {
 
 function stopCamera() {
   if (camStream) { camStream.getTracks().forEach((t) => t.stop()); camStream = null; }
-  if (scanLoop) { cancelAnimationFrame(scanLoop); scanLoop = null; }
+  if (scanLoop)  { cancelAnimationFrame(scanLoop); scanLoop = null; }
   const v = document.getElementById("videoEl");
   v.classList.remove("on");
   document.getElementById("qrPlaceholder").style.display = "block";
-  document.getElementById("camBtn").textContent = "ক্যামেরা চালু করুন";
+  document.getElementById("camBtn").textContent          = "ক্যামেরা চালু করুন";
 }
 
 function startLoop() {
-  const v   = document.getElementById("videoEl");
-  // Cap the decode canvas to a small max dimension — far fewer pixels for
-  // jsQR to scan through per frame means a much faster, near-instant read
-  // the moment a code is held steady in front of the camera.
-  const MAX_DECODE_DIM = 360;
-  const ctx = qrWorkCanvas.getContext("2d", { willReadFrequently: true });
+  const v           = document.getElementById("videoEl");
+  const MAX_DIM     = 360;
+  const ctx         = qrWorkCanvas.getContext("2d", { willReadFrequently: true });
 
   function tick() {
     if (v.readyState === v.HAVE_ENOUGH_DATA && v.videoWidth) {
-      const scale = Math.min(1, MAX_DECODE_DIM / Math.max(v.videoWidth, v.videoHeight));
+      const scale = Math.min(1, MAX_DIM / Math.max(v.videoWidth, v.videoHeight));
       const w = Math.max(1, Math.round(v.videoWidth * scale));
       const h = Math.max(1, Math.round(v.videoHeight * scale));
-      qrWorkCanvas.width = w;
+      qrWorkCanvas.width  = w;
       qrWorkCanvas.height = h;
       ctx.drawImage(v, 0, 0, w, h);
-      const img = ctx.getImageData(0, 0, w, h);
+      const img  = ctx.getImageData(0, 0, w, h);
       const code = jsQR(img.data, img.width, img.height, { inversionAttempts: "attemptBoth" });
       if (code) {
         try {
@@ -823,7 +809,7 @@ function startLoop() {
             if (user) { showScanResult(user); stopCamera(); return; }
             else toast("❌", "অজানা QR — নিবন্ধিত নয়", "err");
           }
-        } catch (e) { /* not our QR format yet — keep scanning silently */ }
+        } catch (e) { /* keep scanning */ }
       }
     }
     scanLoop = requestAnimationFrame(tick);
@@ -846,42 +832,40 @@ function showScanResult(user) {
   document.getElementById("sType").textContent = user.type === "student" ? "🎓 স্টুডেন্ট" : "👨‍💼 স্টাফ";
   document.getElementById("sBal").textContent  = user.balance;
 
-  // Reset pickup/drop selectors and seat-count for the new scan
-  document.getElementById("boardFrom").value = "";
-  document.getElementById("boardTo").value   = "";
-  document.getElementById("boardSeatCount").value = "1";
+  document.getElementById("boardFrom").value          = "";
+  document.getElementById("boardTo").value            = "";
+  document.getElementById("boardSeatCount").value     = "1";
   document.getElementById("boardFarePreview").style.display = "none";
 
   document.getElementById("scanResult").style.display = "block";
   toast("✓", `${user.name} যাচাই সম্পন্ন`, "ok");
 }
 
-// Live fare preview whenever pickup/drop selection or seat count changes
 function updateBoardFarePreview() {
-  const from = document.getElementById("boardFrom").value;
-  const to   = document.getElementById("boardTo").value;
+  const from      = document.getElementById("boardFrom").value;
+  const to        = document.getElementById("boardTo").value;
   const seatCount = parseInt(document.getElementById("boardSeatCount").value, 10) || 1;
-  const box  = document.getElementById("boardFarePreview");
+  const box       = document.getElementById("boardFarePreview");
   if (!from || !to || from === to || !scannedUser) { box.style.display = "none"; return; }
-  const { fare } = fareFor(from, to, scannedUser.type === "staff" ? "staff" : scannedUser.type === "guest" ? "guest" : "student");
+  const { fare }  = fareFor(from, to, scannedUser.type === "staff" ? "staff" : "student");
   document.getElementById("boardFareAmt").textContent = fare * seatCount;
   box.style.display = "block";
 }
 
 function confirmBoard() {
   if (!scannedUser) return;
-  const fromKey = document.getElementById("boardFrom").value;
-  const toKey   = document.getElementById("boardTo").value;
+  const fromKey   = document.getElementById("boardFrom").value;
+  const toKey     = document.getElementById("boardTo").value;
   const seatCount = parseInt(document.getElementById("boardSeatCount").value, 10) || 1;
+
   if (!fromKey || !toKey) { toast("⚠️", "উঠার ও নামার স্থান নির্বাচন করুন", "warn"); return; }
   if (fromKey === toKey)  { toast("⚠️", "উঠা ও নামার স্থান একই হতে পারবে না", "warn"); return; }
 
-  // Find an active cart with enough free seats for the requested seat count
   const cart = CARTS.find((c) => c.status === "active" && (c.capacity - c.passengers) >= seatCount);
   if (!cart) { toast("❌", `এই মুহূর্তে ${seatCount} সিট খালি আছে এমন কোনো কার্ট নেই`, "err"); return; }
 
-  const typeKey = scannedUser.type === "staff" ? "staff" : scannedUser.type === "guest" ? "guest" : "student";
-  const { fare } = fareFor(fromKey, toKey, typeKey);
+  const typeKey   = scannedUser.type === "staff" ? "staff" : "student";
+  const { fare }  = fareFor(fromKey, toKey, typeKey);
   const totalFare = fare * seatCount;
 
   if (scannedUser.balance < totalFare) {
@@ -889,10 +873,9 @@ function confirmBoard() {
     return;
   }
 
-  // Deduct total fare from the boarding passenger's wallet
   scannedUser.balance -= totalFare;
   const users = loadUsers();
-  const ui = users.findIndex((u) => u.id === scannedUser.id);
+  const ui    = users.findIndex((u) => u.id === scannedUser.id);
   if (ui > -1) { users[ui].balance = scannedUser.balance; saveUsers(users); }
   if (currentUser && currentUser.id === scannedUser.id) {
     currentUser.balance = scannedUser.balance;
@@ -900,26 +883,21 @@ function confirmBoard() {
     document.getElementById("walBal").textContent = currentUser.balance;
   }
 
-  // Bump cart occupancy by the number of seats taken
   cart.passengers += seatCount;
-
-  // Track this boarding so the passenger(s) can later be "dropped off"
-  // to free up their seats again.
   if (!cart.boarded) cart.boarded = [];
   cart.boarded.push({
-    boardId: "B" + Date.now() + Math.floor(Math.random() * 1000),
-    userId: scannedUser.id,
-    userName: scannedUser.name,
+    boardId:   "B" + Date.now() + Math.floor(Math.random() * 1000),
+    userId:    scannedUser.id,
+    userName:  scannedUser.name,
     seatCount,
-    fromName: LOCS[fromKey].name,
-    toName: LOCS[toKey].name,
+    fromName:  LOCS[fromKey].name,
+    toName:    LOCS[toKey].name,
     boardedAt: new Date().toLocaleTimeString("bn-BD", { hour: "numeric", minute: "2-digit", hour12: true }),
   });
 
-  // Update driver stats if applicable
   if (cart.driverId) {
     const drivers = loadDrivers();
-    const di = drivers.findIndex((d) => d.id === cart.driverId);
+    const di      = drivers.findIndex((d) => d.id === cart.driverId);
     if (di > -1) {
       drivers[di].todayRides++;
       drivers[di].todayEarning += totalFare;
@@ -933,19 +911,18 @@ function confirmBoard() {
     }
   }
 
-  // Record the ride in history for the boarding passenger
-  const now = new Date();
+  const now   = new Date();
   const rides = loadRides();
   rides.unshift({
-    userId: scannedUser.id,
-    date: now.toLocaleDateString("bn-BD", { year: "numeric", month: "long", day: "numeric" }),
-    time: now.toLocaleTimeString("bn-BD", { hour: "numeric", minute: "2-digit", hour12: true }),
-    fromName: LOCS[fromKey].name,
-    toName: LOCS[toKey].name,
-    cartId: cart.id,
+    userId:    scannedUser.id,
+    date:      now.toLocaleDateString("bn-BD", { year: "numeric", month: "long", day: "numeric" }),
+    time:      now.toLocaleTimeString("bn-BD", { hour: "numeric", minute: "2-digit", hour12: true }),
+    fromName:  LOCS[fromKey].name,
+    toName:    LOCS[toKey].name,
+    cartId:    cart.id,
     seatCount,
-    fare: totalFare,
-    status: "completed",
+    fare:      totalFare,
+    status:    "completed",
   });
   saveRides(rides);
 
@@ -958,31 +935,26 @@ function confirmBoard() {
 
 function cancelScan() {
   scannedUser = null;
-  document.getElementById("scanResult").style.display = "none";
-  document.getElementById("manId").value = "";
-  document.getElementById("boardFrom").value = "";
-  document.getElementById("boardTo").value = "";
-  document.getElementById("boardSeatCount").value = "1";
-  document.getElementById("boardFarePreview").style.display = "none";
+  document.getElementById("scanResult").style.display           = "none";
+  document.getElementById("manId").value                        = "";
+  document.getElementById("boardFrom").value                    = "";
+  document.getElementById("boardTo").value                      = "";
+  document.getElementById("boardSeatCount").value               = "1";
+  document.getElementById("boardFarePreview").style.display     = "none";
 }
 
 // ══════════════════════════════════════════════════
-//  DROP-OFF — lets a passenger (or anyone helping them)
-//  mark themselves as "got off the cart" so their seat(s)
-//  become available again for new boardings.
+//  DROP-OFF
 // ══════════════════════════════════════════════════
 function renderDropoffList() {
   const con = document.getElementById("dropoffListContainer");
   if (!con) return;
   con.innerHTML = "";
-
   const activeWithPassengers = CARTS.filter((c) => c.status === "active" && c.boarded && c.boarded.length > 0);
-
   if (activeWithPassengers.length === 0) {
     con.innerHTML = `<div class="ride-empty"> </div>`;
     return;
   }
-
   activeWithPassengers.forEach((cart) => {
     cart.boarded.forEach((b) => {
       const el = document.createElement("div");
@@ -1003,35 +975,60 @@ function dropOffPassenger(cartId, boardId) {
   if (!cart || !cart.boarded) return;
   const idx = cart.boarded.findIndex((b) => b.boardId === boardId);
   if (idx === -1) return;
-
   const entry = cart.boarded[idx];
-  // Free up the seats this passenger was occupying
   cart.passengers = Math.max(0, cart.passengers - entry.seatCount);
   cart.boarded.splice(idx, 1);
-
   renderCartList(); updateStats(); renderMarkers(); renderDropoffList();
-  toast("", `${entry.userName} আপনাকে ধন্যবাদ  — ${entry.seatCount} সিট খালি হয়েছে`, "ok");
+  toast("", `${entry.userName} আপনাকে ধন্যবাদ — ${entry.seatCount} সিট খালি হয়েছে`, "ok");
 }
 
 // ══════════════════════════════════════════════════
-//  RESERVE CART — book a cart in advance for a specific
-//  date/time/route and receive a unique coupon code that
-//  can later be verified in the Scanner tab.
+//  RESERVE CART
 // ══════════════════════════════════════════════════
-function submitReservation() {
-  const userId = document.getElementById("resvUserId").value.trim();
-  const date   = document.getElementById("resvDate").value;
-  const time   = document.getElementById("resvTime").value;
-  const fromKey = document.getElementById("resvFrom").value;
-  const toKey   = document.getElementById("resvTo").value;
-  const seatCount = parseInt(document.getElementById("resvSeatCount").value, 10) || 1;
 
-  if (!userId || !date || !time || !fromKey || !toKey) {
-    toast("⚠️", "সব ঘর পূরণ করুন", "warn");
+// কার্ট টাইপ অনুযায়ী প্রতি ঘন্টার রেট
+const CART_RATES = { "6": 250, "12": 350 };
+
+// কার্ট টাইপ বা ঘন্টা পরিবর্তন হলে ভাড়া প্রিভিউ আপডেট করো
+function updateResvFareInfo() {
+  const cartType  = document.getElementById("resvCartType").value;
+  const hoursGrp  = document.getElementById("resvHoursGroup");
+  const infoBox   = document.getElementById("resvFareInfoBox");
+
+  if (!cartType) {
+    hoursGrp.style.display  = "none";
+    infoBox.style.display   = "none";
     return;
   }
-  if (fromKey === toKey) {
-    toast("⚠️", "পিকআপ ও ড্রপ স্থান একই হতে পারবে না", "warn");
+
+  hoursGrp.style.display = "block";
+
+  const hours     = parseInt(document.getElementById("resvHours").value, 10) || 1;
+  const ratePerHr = CART_RATES[cartType];
+  const total     = ratePerHr * hours;
+  const seatLabel = cartType === "6" ? "৬ সিট" : "১২ সিট";
+
+  infoBox.style.display = "block";
+  infoBox.innerHTML = `
+    <div class="fare-info-title">💰 ভাড়ার বিবরণ</div>
+    <div class="fare-info-row"><span>কার্টের ধরন</span><span>${seatLabel}</span></div>
+    <div class="fare-info-row"><span>প্রতি ঘন্টার ভাড়া</span><span>৳${ratePerHr}</span></div>
+    <div class="fare-info-row"><span>মোট সময়</span><span>${hours} ঘন্টা</span></div>
+    <div class="fare-info-row"><span>মোট ভাড়া</span><span class="fare-info-total">৳${total}</span></div>`;
+}
+
+function submitReservation() {
+  const userId   = document.getElementById("resvUserId").value.trim();
+  const batch    = document.getElementById("resvBatch").value.trim();
+  const date     = document.getElementById("resvDate").value;
+  const time     = document.getElementById("resvTime").value;
+  const fromKey  = document.getElementById("resvFrom").value;
+  const toKey    = document.getElementById("resvTo").value;
+  const cartType = document.getElementById("resvCartType").value;
+  const hours    = parseInt(document.getElementById("resvHours") ? document.getElementById("resvHours").value : 1, 10) || 1;
+
+  if (!userId || !date || !time || !fromKey || !toKey || !cartType) {
+    toast("⚠️", "সব ঘর পূরণ করুন", "warn");
     return;
   }
   const user = loadUsers().find((u) => u.id === userId);
@@ -1040,28 +1037,32 @@ function submitReservation() {
     return;
   }
 
-  // Reservations should be made for a future date (the day before or later)
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today    = new Date(); today.setHours(0, 0, 0, 0);
   const resvDate = new Date(date + "T00:00:00");
   if (resvDate < today) {
     toast("⚠️", "অতীতের তারিখের জন্য রিজার্ভ করা যাবে না", "warn");
     return;
   }
 
-  const coupon = "RSV-" + Math.random().toString(36).substring(2, 8).toUpperCase();
+  const ratePerHr = CART_RATES[cartType];
+  const totalFare = ratePerHr * hours;
+  const seatLabel = cartType === "6" ? "৬ সিট" : "১২ সিট";
 
+  const coupon = "RSV-" + Math.random().toString(36).substring(2, 8).toUpperCase();
   const reservation = {
     coupon,
-    userId: user.id,
-    userName: user.name,
-    date,
-    time,
+    userId:    user.id,
+    userBatch: batch,
+    userName:  user.name,
+    date, time,
     fromKey, toKey,
-    fromName: LOCS[fromKey].name,
-    toName: LOCS[toKey].name,
-    seatCount,
-    status: "pending", // pending | used
+    fromName:  LOCS[fromKey].name,
+    toName:    LOCS[toKey].name,
+    cartType,
+    seatLabel,
+    hours,
+    totalFare,
+    status:    "pending",
     createdAt: new Date().toISOString(),
   };
 
@@ -1069,25 +1070,32 @@ function submitReservation() {
   reservations.unshift(reservation);
   saveReservations(reservations);
 
-  // Show the coupon result box
   document.getElementById("resvCouponCode").textContent = coupon;
   document.getElementById("resvCouponDetails").innerHTML = `
-    <p><strong>যাত্রী:</strong> ${user.name} (${user.id})</p>
+    <p><strong>যাত্রী:</strong> ${user.name} (${user.id}) — ব্যাচ ${batch}</p>
     <p><strong>তারিখ ও সময়:</strong> ${date} — ${time}</p>
     <p><strong>রুট:</strong> ${reservation.fromName} → ${reservation.toName}</p>
-    <p><strong>সিট সংখ্যা:</strong> ${seatCount}</p>`;
+    <p><strong>কার্টের ধরন:</strong> ${seatLabel}</p>
+    <p><strong>সময়কাল:</strong> ${hours} ঘন্টা</p>
+    <p><strong>মোট ভাড়া:</strong> ৳${totalFare}</p>`;
   document.getElementById("reserveResultBox").style.display = "block";
+
+  // ফর্ম রিসেট
+  document.getElementById("resvCartType").value    = "";
+  document.getElementById("resvHours").value       = "1";
+  document.getElementById("resvFareInfoBox").style.display  = "none";
+  document.getElementById("resvHoursGroup").style.display   = "none";
 
   renderMyReservations();
   toast("✓", "রিজার্ভেশন সফল! কুপন কোড তৈরি হয়েছে", "ok");
 }
 
 function renderMyReservations() {
-  const con = document.getElementById("myReservationsContainer");
+  const con    = document.getElementById("myReservationsContainer");
   if (!con) return;
-  const userId = document.getElementById("resvUserId").value.trim();
-  const all = loadReservations();
-  const mine = userId ? all.filter((r) => r.userId === userId) : all;
+  const userId = currentUser ? currentUser.id : "";
+  const all    = loadReservations();
+  const mine   = userId ? all.filter((r) => r.userId === userId) : all;
 
   if (mine.length === 0) {
     con.innerHTML = `<div class="ride-empty">কোনো রিজার্ভেশন পাওয়া যায়নি।</div>`;
@@ -1102,22 +1110,24 @@ function renderMyReservations() {
       </div>
       <p><strong>তারিখ ও সময়:</strong> ${r.date} — ${r.time}</p>
       <p><strong>রুট:</strong> ${r.fromName} → ${r.toName}</p>
-      <p><strong>সিট:</strong> ${r.seatCount}</p>
+      ${r.seatLabel  ? `<p><strong>কার্টের ধরন:</strong> ${r.seatLabel}</p>` : (r.seatCount ? `<p><strong>সিট:</strong> ${r.seatCount}</p>` : "")}
+      ${r.hours      ? `<p><strong>সময়কাল:</strong> ${r.hours} ঘন্টা</p>` : ""}
+      ${r.totalFare  ? `<p><strong>মোট ভাড়া:</strong> ৳${r.totalFare}</p>` : ""}
+      ${r.userBatch  ? `<p><strong>ব্যাচ:</strong> ${r.userBatch}</p>` : ""}
     </div>`).join("");
 }
 
-// Verify a reservation coupon from the Scanner tab (manual entry style)
 function verifyCoupon() {
   const code = document.getElementById("couponInput").value.trim().toUpperCase();
   const box  = document.getElementById("couponResultBox");
   if (!code) { toast("⚠️", "কুপন কোড লিখুন", "warn"); return; }
 
   const reservations = loadReservations();
-  const idx = reservations.findIndex((r) => r.coupon === code);
+  const idx          = reservations.findIndex((r) => r.coupon === code);
 
   if (idx === -1) {
     box.style.display = "block";
-    box.innerHTML = `<div class="coupon-invalid">❌ এই কুপন কোডটি সঠিক নয়।</div>`;
+    box.innerHTML     = `<div class="coupon-invalid">❌ এই কুপন কোডটি সঠিক নয়।</div>`;
     toast("❌", "ভুল কুপন কোড", "err");
     return;
   }
@@ -1125,37 +1135,39 @@ function verifyCoupon() {
   const r = reservations[idx];
   if (r.status === "used") {
     box.style.display = "block";
-    box.innerHTML = `<div class="coupon-invalid">⚠️ এই কুপনটি ইতিমধ্যে ব্যবহার করা হয়েছে।</div>`;
+    box.innerHTML     = `<div class="coupon-invalid">⚠️ এই কুপনটি ইতিমধ্যে ব্যবহার করা হয়েছে।</div>`;
     toast("⚠️", "কুপন আগেই ব্যবহৃত হয়েছে", "warn");
     return;
   }
 
-  // Mark as used
   reservations[idx].status = "used";
   saveReservations(reservations);
 
   box.style.display = "block";
   box.innerHTML = `
     <div class="coupon-valid">
-      <p style="font-weight:700;color:#155724;margin-bottom:6px">✅ কুপন যাচাই সফল!ধন্যবাদ</p>
+      <p style="font-weight:700;color:#155724;margin-bottom:6px">✅ কুপন যাচাই সফল! ধন্যবাদ</p>
       <p><strong>যাত্রী:</strong> ${r.userName} (${r.userId})</p>
+      ${r.userBatch  ? `<p><strong>ব্যাচ:</strong> ${r.userBatch}</p>` : ""}
       <p><strong>তারিখ ও সময়:</strong> ${r.date} — ${r.time}</p>
       <p><strong>রুট:</strong> ${r.fromName} → ${r.toName}</p>
-      <p><strong>সিট সংখ্যা:</strong> ${r.seatCount}</p>
+      ${r.seatLabel  ? `<p><strong>কার্টের ধরন:</strong> ${r.seatLabel}</p>` : (r.seatCount ? `<p><strong>সিট সংখ্যা:</strong> ${r.seatCount}</p>` : "")}
+      ${r.hours      ? `<p><strong>সময়কাল:</strong> ${r.hours} ঘন্টা</p>` : ""}
+      ${r.totalFare  ? `<p><strong>মোট ভাড়া:</strong> ৳${r.totalFare}</p>` : ""}
     </div>`;
   document.getElementById("couponInput").value = "";
   toast("✓", `${r.userName}-এর রিজার্ভেশন যাচাই হয়েছে!`, "ok");
 }
 
 // ══════════════════════════════════════════════════
-//  FARE (calculator tab — independent from boarding flow)
+//  FARE CALCULATOR
 // ══════════════════════════════════════════════════
 function calculateFare() {
   const from = document.getElementById("fromLocation").value;
   const to   = document.getElementById("toLocation").value;
   const type = document.getElementById("userType").value;
   if (!from || !to) { toast("⚠️", "শুরু ও গন্তব্য নির্বাচন করুন", "warn"); return; }
-  if (from === to)  { toast("⚠️", "একই স্থান নির্বাচন করা যাবে না", "warn"); return; }
+  if (from === to)  { toast("⚠️", "একই স্থান নির্বাচন করা যাবে না",  "warn"); return; }
   const { distance, fare } = fareFor(from, to, type);
   const names = { student: "স্টুডেন্ট", staff: "স্টাফ", guest: "অতিথি" };
   document.getElementById("fareDistance").textContent = distance + " km";
@@ -1165,23 +1177,20 @@ function calculateFare() {
 }
 
 // ══════════════════════════════════════════════════
-//  RIDE HISTORY (dynamic — updates immediately after boarding)
+//  RIDE HISTORY
 // ══════════════════════════════════════════════════
 function renderRideHistory() {
   const con = document.getElementById("rideHistory");
   if (!con) return;
-
   if (!currentUser) {
     con.innerHTML = `<div class="ride-empty">হিস্ট্রি দেখতে আগে লগইন করুন</div>`;
     return;
   }
-
   const rides = loadRides().filter((r) => r.userId === currentUser.id);
   if (rides.length === 0) {
     con.innerHTML = `<div class="ride-empty">এখনো কোনো রাইড নেই।</div>`;
     return;
   }
-
   con.innerHTML = rides.map((r) => `
     <div class="ride-card">
       <div class="ride-header">
@@ -1206,7 +1215,7 @@ function openTopup() {
   document.getElementById("topupModal").classList.add("open");
 }
 function closeTopup() { document.getElementById("topupModal").classList.remove("open"); }
-function setTP(v) { document.getElementById("tpAmt").value = v; }
+function setTP(v)     { document.getElementById("tpAmt").value = v; }
 function doTopup() {
   const amt = parseFloat(document.getElementById("tpAmt").value);
   if (!amt || amt <= 0) { toast("⚠️", "সঠিক পরিমাণ লিখুন", "warn"); return; }
@@ -1242,16 +1251,13 @@ window.onload = () => {
   renderRideHistory();
   renderDropoffList();
 
-  // Pickup/Drop live fare preview while boarding (also react to seat count changes)
-  document.getElementById("boardFrom").addEventListener("change", updateBoardFarePreview);
-  document.getElementById("boardTo").addEventListener("change", updateBoardFarePreview);
+  // লগইন থাকলে রিজার্ভ ফিল্ড সাথে সাথে পূরণ করো
+  if (currentUser) fillReserveFields();
+
+  document.getElementById("boardFrom").addEventListener("change",     updateBoardFarePreview);
+  document.getElementById("boardTo").addEventListener("change",       updateBoardFarePreview);
   document.getElementById("boardSeatCount").addEventListener("change", updateBoardFarePreview);
 
-  // Refresh "my reservations" list whenever the user types/changes their ID
-  const resvUserIdEl = document.getElementById("resvUserId");
-  if (resvUserIdEl) resvUserIdEl.addEventListener("change", renderMyReservations);
-
-  // If driver was logged in previously, restore online status
   if (currentDriver) {
     const cart = CARTS.find((c) => c.id === currentDriver.cartId);
     if (cart && currentDriver.online) {
@@ -1261,17 +1267,18 @@ window.onload = () => {
     renderMarkers(); renderCartList(); updateStats();
   }
 
-  // Close modals on outside click
+  // মডাল বাইরে ক্লিক করলে বন্ধ
   document.querySelectorAll(".modal").forEach((m) => {
     m.addEventListener("click", (e) => {
       if (e.target === m) {
         m.classList.remove("open");
         if (m.id === "trackModal") closeTrackModal();
+        if (m.id === "authGuardModal") closeGuard();
       }
     });
   });
 
-  // Stat pulse animation
+  // Stat pulse
   setInterval(() => {
     document.querySelectorAll(".stat-value").forEach((s) => {
       s.style.transform = "scale(1.1)";
