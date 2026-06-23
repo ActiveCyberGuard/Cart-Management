@@ -264,7 +264,6 @@ body {
 .seat-fill.full { background: #dc3545; }
 .seat-text { font-size: 11px; color: #999; display: flex; justify-content: space-between; }
 
-/* Cart action buttons */
 .cart-actions {
   display: flex;
   flex-direction: column;
@@ -343,7 +342,6 @@ body {
 }
 .user-details p { margin: 7px 0; font-size: 15px; }
 
-/* Pickup/Drop selection box inside scan result */
 .board-route-box {
   text-align: left;
   background: white;
@@ -386,6 +384,12 @@ body {
   font-family: "Segoe UI", sans-serif;
 }
 .input-field:focus { outline: none; border-color: #667eea; }
+.input-field[readonly] {
+  background: #f0f4ff;
+  border-color: #c0caff;
+  color: #555;
+  cursor: default;
+}
 .form-group { margin-bottom: 18px; }
 .form-group label { display: block; margin-bottom: 7px; font-weight: 600; color: #444; }
 
@@ -528,7 +532,6 @@ tbody tr:last-child { border-bottom: none; }
 }
 .modal-hint strong { color: #667eea; }
 
-/* MODAL TABS */
 .modal-tabs {
   display: flex;
   gap: 4px;
@@ -555,7 +558,7 @@ tbody tr:last-child { border-bottom: none; }
   color: white;
 }
 
-/* ── ROLE TABS (Passenger / Driver) ── */
+/* ── ROLE TABS ── */
 .role-tabs {
   display: flex;
   gap: 8px;
@@ -609,17 +612,8 @@ tbody tr:last-child { border-bottom: none; }
   align-items: center;
   justify-content: center;
 }
-.driver-name {
-  font-size: 17px;
-  font-weight: 700;
-  color: #333;
-}
-.driver-cart-id {
-  font-size: 13px;
-  color: #667eea;
-  font-weight: 600;
-  margin-top: 3px;
-}
+.driver-name { font-size: 17px; font-weight: 700; color: #333; }
+.driver-cart-id { font-size: 13px; color: #667eea; font-weight: 600; margin-top: 3px; }
 .driver-status-row {
   display: flex;
   align-items: center;
@@ -628,7 +622,6 @@ tbody tr:last-child { border-bottom: none; }
   font-weight: 600;
   color: #555;
 }
-/* Toggle Switch */
 .toggle-switch {
   position: relative;
   display: inline-block;
@@ -657,11 +650,7 @@ tbody tr:last-child { border-bottom: none; }
 }
 .toggle-switch input:checked + .toggle-slider { background: #28a745; }
 .toggle-switch input:checked + .toggle-slider:before { transform: translateX(24px); }
-
-.driver-stats {
-  display: flex;
-  gap: 12px;
-}
+.driver-stats { display: flex; gap: 12px; }
 .driver-stat {
   flex: 1;
   background: white;
@@ -767,16 +756,7 @@ tbody tr:last-child { border-bottom: none; }
 }
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-/* Realistic moving-cart marker styling.
-   Position updates now happen on every animation frame from JS itself
-   (see index.js simStep), so we deliberately do NOT add a CSS transition
-   on the marker's transform/position here — a long CSS transition would
-   fight against the per-frame JS updates and actually look laggy or
-   rubber-banded. The car icon inside stays upright at all times (no
-   rotation), per request — only its position glides smoothly. */
-.leaflet-marker-icon {
-  will-change: transform;
-}
+.leaflet-marker-icon { will-change: transform; }
 
 /* ── DROP-OFF SECTION ── */
 .dropoff-section {
@@ -812,7 +792,7 @@ tbody tr:last-child { border-bottom: none; }
 }
 .dropoff-route { font-size: 12.5px; color: #777; margin-top: 4px; }
 
-/* ── COUPON VERIFY (scanner tab) ── */
+/* ── COUPON VERIFY ── */
 .coupon-verify-section {
   margin-top: 24px;
   padding-top: 24px;
@@ -851,7 +831,6 @@ tbody tr:last-child { border-bottom: none; }
 .reserve-container h2 { text-align: center; color: #667eea; margin-bottom: 8px; }
 .reserve-sub { text-align: center; font-size: 13.5px; color: #888; margin-bottom: 22px; }
 .reserve-form { margin-bottom: 10px; }
-
 .coupon-box {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
@@ -880,6 +859,65 @@ tbody tr:last-child { border-bottom: none; }
   font-size: 13.5px;
 }
 .coupon-details p { margin: 4px 0; }
+/* ── RESERVE FARE INFO BOX ── */
+.resv-fare-info-box {
+  background: linear-gradient(135deg, #f0f4ff 0%, #e8eaf6 100%);
+  border: 2px solid #c0caff;
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 18px;
+  font-size: 14px;
+  color: #333;
+}
+.resv-fare-info-box .fare-info-title {
+  font-weight: 700;
+  color: #667eea;
+  font-size: 15px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.resv-fare-info-box .fare-info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 0;
+  border-bottom: 1px dashed #c0caff;
+  color: #555;
+}
+.resv-fare-info-box .fare-info-row:last-child {
+  border-bottom: none;
+  font-weight: 700;
+  color: #333;
+  font-size: 15px;
+  padding-top: 8px;
+}
+.resv-fare-info-box .fare-info-total {
+  color: #667eea;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+/* ── CART TYPE RATE TABLE ── */
+.cart-rate-table {
+  width: 100%;
+  margin-top: 8px;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+.cart-rate-table th {
+  background: rgba(102,126,234,0.12);
+  color: #667eea;
+  font-weight: 700;
+  padding: 8px 10px;
+  text-align: left;
+}
+.cart-rate-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid #e0e7ff;
+  color: #444;
+}
+.cart-rate-table tr:last-child td { border-bottom: none; }
 
 .reserve-list { margin-top: 28px; padding-top: 22px; border-top: 2px dashed #dee2e6; }
 .reserve-list h3 { color: #667eea; margin-bottom: 14px; text-align: center; }
@@ -906,6 +944,14 @@ tbody tr:last-child { border-bottom: none; }
 }
 .ride-status.pending { background: #fff3cd; color: #856404; }
 .reserve-card p { margin: 5px 0; font-size: 14px; color: #333; }
+
+/* ── AUTH GUARD OVERLAY ── */
+#authGuardModal .modal-content {
+  text-align: center;
+}
+#authGuardModal .modal-content p {
+  line-height: 1.6;
+}
 
 /* RESPONSIVE */
 @media (max-width: 768px) {
